@@ -1,0 +1,88 @@
+class_name ActionList
+extends MultiComponent
+
+## Executes logic on a node based on an ordered list of [Action]s.
+##
+## TODO
+
+## Multiplies the delta time passed to each action by the given amount.
+## Useful for speeding up, slowing down, or stopping [Action]s.
+@export_range(0.0, 1, 0.0001, "hide_slider", "or_greater")
+var delta_multiplier := 1.0
+
+## Whether to process the [Action]s in the physics process or the frame process.
+@export
+var physics_process := false:
+	set(value):
+		physics_process = value
+		
+		set_process(not value)
+		set_physics_process(value)
+
+## The list of actions being processed in the current frame.
+var front_buffer: Array[Action]:
+	get:
+		return _action_buffer_1 if _buffer_1_is_front else _action_buffer_2
+
+## The list of actions to process during the next frame.
+var back_buffer: Array[Action]:
+	get:
+		return _action_buffer_2 if _buffer_1_is_front else _action_buffer_1
+
+## The tags of [Action]s that are currently being blocked each frame.
+var _blocked_groups := Bitset.new()
+
+# Two lists that are swapped between to allow for complex actions such as
+# adding actions midframe or creating a new set entirely.
+var _action_buffer_1: Array[Action] = []
+var _action_buffer_2: Array[Action] = []
+
+# If true, use the first action buffer as the one currently being processed
+# and the second as the list of actions the next frame should process.
+# Vice versa otherwise.
+var _buffer_1_is_front := false
+
+func _ready() -> void:
+	# NOTE: Done to trigger the setter of this variable since it has custom logic
+	physics_process = physics_process
+
+func _process(delta: float) -> void:
+	update(delta)
+
+func _physics_process(delta: float) -> void:
+	update(delta)
+
+## Processes each action in order by progressing them by [param dt] times [member delta_multiplier] seconds.
+func update(dt: float) -> void:
+	# Swap to the buffer with actions accumulated from the last frame
+	_buffer_1_is_front = not _buffer_1_is_front
+	
+	# Remove all blocks for this frame
+	_blocked_groups.clear()
+	# Clean out the back buffer to handle the next frame's actions
+	back_buffer.clear()
+	
+	# For each action in the buffer currently being processed...
+	for action: Action in front_buffer:
+		# Process the action if it isn't in a group that's being blocked
+		if not action.participating_groups.any_bits_from(_blocked_groups):
+			action.process(delta_multiplier * dt)
+		
+		if not action.done():
+			# Add the groups the action is blocking to the block list, if it has any
+			action.blocking_groups.merge_onto(_blocked_groups)
+			push(action)
+
+## Adds an [param action] to the end of the [member back_buffer].
+func push(action: Action) -> void:
+	back_buffer.append(action)
+
+## Adds multiple [Action]s from a [param list] to the end of the [member back_buffer].
+func push_list(list: Array[Action]) -> void:
+	back_buffer.append_array(list)
+
+## Clears the action list of any actions it may have.
+func clear() -> void:
+	_blocked_groups.clear()
+	back_buffer.clear()
+	front_buffer.clear()
