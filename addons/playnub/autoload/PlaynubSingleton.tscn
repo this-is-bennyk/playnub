@@ -11,8 +11,5 @@ script = ExtResource("1_53hhr")
 [node name="Automator" type="Node" parent="."]
 script = ExtResource("2_jam1u")
 
-[node name="Telemeter" type="Node2D" parent="."]
-top_level = true
-z_index = 4096
-z_as_relative = false
+[node name="Telemeter" type="Node" parent="."]
 script = ExtResource("3_qnt4v")

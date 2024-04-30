@@ -1,10 +1,11 @@
-[gd_scene load_steps=11 format=3 uid="uid://uhco4x10nvek"]
+[gd_scene load_steps=12 format=3 uid="uid://uhco4x10nvek"]
 
 [ext_resource type="Script" path="res://addons/playnub/components/Entity.gd" id="1_lfu33"]
 [ext_resource type="Script" path="res://test/Printer.gd" id="2_wpbaf"]
 [ext_resource type="Texture2D" uid="uid://bd0chbywunkxv" path="res://icon.svg" id="3_v7g62"]
 [ext_resource type="Script" path="res://addons/playnub/game_ai/action_list/ActionList.gd" id="4_mkt3a"]
 [ext_resource type="Script" path="res://test/TestMovement.gd" id="5_xdyhd"]
+[ext_resource type="Script" path="res://test/TelemetryTest.gd" id="7_cbkoa"]
 [ext_resource type="Script" path="res://addons/playnub/datatypes/ControlCurve.gd" id="8_qaqen"]
 
 [sub_resource type="Resource" id="Resource_u72f2"]
@@ -88,3 +89,12 @@ libraries = {
 "": SubResource("AnimationLibrary_mt2e0")
 }
 autoplay = "new_animation"
+
+[node name="TelemetryTest" type="Node" parent="." node_paths=PackedStringArray("to_track", "timer")]
+script = ExtResource("7_cbkoa")
+to_track = NodePath("../Icon")
+timer = NodePath("Timer")
+
+[node name="Timer" type="Timer" parent="TelemetryTest"]
+wait_time = 0.2
+autostart = true

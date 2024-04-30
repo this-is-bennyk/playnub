@@ -48,5 +48,6 @@ var upcasted: Node:
 		return self as Node
 
 func _ready() -> void:
-	add_to_group(script_type)
+	if not script_type.is_empty():
+		add_to_group(script_type)
 	add_to_group(builtin_type)

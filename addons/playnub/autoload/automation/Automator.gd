@@ -22,3 +22,24 @@
 
 class_name Automator
 extends UniqueComponent
+
+## Performs custom telemetry with given game inputs.
+## 
+## TODO
+
+const _ACTION_TYPE := &"action"
+const _ACTION_SEND := &"send_action"
+
+func send_action(action_name: StringName, duration: float, delay := 0.0, blocking := false) -> void:
+	pass
+
+#func send_mouse_move(from: Vector2, to: Vector2, duration: float, delay := 0.0, blocking := false) -> void:
+	#pass
+#
+#func send_mouse_click(button: MouseButton, delay := 0.0, blocking := false) -> void:
+	#pass
+
+func parse_input(type: StringName, arguments: Array) -> void:
+	match type:
+		_ACTION_TYPE:
+			callv(_ACTION_SEND, arguments)

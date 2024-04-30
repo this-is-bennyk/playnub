@@ -34,7 +34,12 @@ const _USR_DIR_STR := &"user://"
 const _TELEMETRY_HIGH_LVL_DIR_STR := &"Playnub/Telemetry"
 const _SLASH_STR := &"/"
 const _CSV_EXT_STR := &".csv"
-const _SESSION_END := &"END OF SESSION"
+const _SESSION_END_STR := &"END OF SESSION"
+const _TIME_STR := &"T"
+const _COLON_STR := &":"
+const _HOUR_STR := &"_H"
+const _MIN_STR := &"_M"
+const _SEC_STR := &"_S"
 
 ## Whether to stop recording telemetry data upon release of the game. Multiplayer
 ## and/or live-service games may want to continue recording telemetry to evaluate
@@ -42,6 +47,7 @@ const _SESSION_END := &"END OF SESSION"
 @export
 var disable_on_release := true
 
+## Whether to let the telemetry run or not.
 var enabled := true
 
 var _telemetry_dir_str := ""
@@ -52,12 +58,14 @@ func _ready() -> void:
 	super()
 	
 	if disable_on_release:
-		enabled = OS.has_feature("editor")
+		enabled = enabled and OS.has_feature("editor")
 	
 	if not enabled:
 		return
 	
-	var time_str := Time.get_datetime_string_from_system().lstrip(":")
+	var date_and_time := Time.get_datetime_string_from_system().split(_TIME_STR, false)
+	var time_split := date_and_time[1].split(_COLON_STR, false)
+	var time_str := date_and_time[0] + _HOUR_STR + time_split[0] + _MIN_STR + time_split[1] + _SEC_STR + time_split[2]
 	
 	var user_dir := DirAccess.open(_USR_DIR_STR)
 	user_dir.make_dir_recursive(str(_TELEMETRY_HIGH_LVL_DIR_STR, _SLASH_STR, time_str))
@@ -72,17 +80,25 @@ func _exit_tree() -> void:
 	if not enabled:
 		return
 	
-	var end_signal := PackedStringArray([_SESSION_END])
+	var end_signal := PackedStringArray([_SESSION_END_STR])
 	for table: DataTable in _tables.values():
 		table.stream.store_csv_line(end_signal)
 
-func record_single_datum(label: StringName, value: Box, table_name: StringName) -> void:
+## Watches the boxed [param value] labeled as [param label] in the table with the name [param table_name].[br]
+## This is used to [b]initialize[/b] a telemetry data table, so it should be called at the start of
+## the game or the start of a certain scene, although it can be called at any time (ex. for recording
+## PCG data).[br]
+func watch_single_datum(label: StringName, value: Box, table_name: StringName) -> void:
 	if not enabled:
 		return
 	
-	record_multiple_data([label], [value], table_name)
+	watch_multiple_data([label], [value], table_name)
 
-func record_multiple_data(labels: Array[StringName], values: Array[Box], table: StringName) -> void:
+## Watches the boxed [param values] with the given [param labels] in the table with the name [param table_name].[br]
+## This is used to [b]initialize[/b] a telemetry data table, so it should be called at the start of
+## the game or the start of a certain scene, although it can be called at any time (ex. for recording
+## PCG data).[br]
+func watch_multiple_data(labels: Array[StringName], values: Array[Box], table: StringName) -> void:
 	if not enabled:
 		return
 	
@@ -118,9 +134,9 @@ class DataTable:
 	func _init(stream_to_use: FileAccess) -> void:
 		stream = stream_to_use
 	
-	func record(labels: Array[StringName], values: Array[Box]) -> void:
-		labels.append_array(labels)
-		values.append_array(values)
+	func record(new_labels: Array[StringName], new_values: Array[Box]) -> void:
+		labels.append_array(new_labels)
+		values.append_array(new_values)
 		
 		if num_updates > 0:
 			stream.store_csv_line(labels)
