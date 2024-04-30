@@ -25,9 +25,10 @@ extends UniqueComponent
 
 ## Performs custom telemetry with given game data.
 ##
-## ... Note that telemetry is [b]not[/b] the same as save data. Save data records
-## progress for players over long durations of time; telemetry records real-time
-## data in temporary logs for design analysis.
+## ... Note that telemetry is [b]not[/b] the same as save data. Save data is
+## player-facing data; it records progress for players over long durations of time.
+## Telemetry is developer-facing data; it records real-time data of the state of
+## the game in temporary logs for design analysis.
 
 const _USR_DIR_STR := &"user://"
 const _TELEMETRY_HIGH_LVL_DIR_STR := &"Playnub/Telemetry"
@@ -56,16 +57,15 @@ func _ready() -> void:
 	if not enabled:
 		return
 	
-	var time_str := Time.get_datetime_string_from_system()
+	var time_str := Time.get_datetime_string_from_system().lstrip(":")
 	
 	var user_dir := DirAccess.open(_USR_DIR_STR)
-	
 	user_dir.make_dir_recursive(str(_TELEMETRY_HIGH_LVL_DIR_STR, _SLASH_STR, time_str))
 	
 	_telemetry_dir_str += _USR_DIR_STR
 	_telemetry_dir_str += _TELEMETRY_HIGH_LVL_DIR_STR
 	_telemetry_dir_str += _SLASH_STR
-	_telemetry_dir_str += time_str.lstrip(":")
+	_telemetry_dir_str += time_str
 	_telemetry_dir_str += _SLASH_STR
 
 func _exit_tree() -> void:
@@ -91,25 +91,16 @@ func record_multiple_data(labels: Array[StringName], values: Array[Box], table: 
 	
 	(_tables[table] as DataTable).record(labels, values)
 
+## Captures all the values of the given [param table] with an exact timestamp.
+## Connect signals to this function to automatically record certain values when
+## certain events happen.
 func update(table: StringName) -> void:
 	if not enabled:
 		return
 	
+	assert(_tables.has(table), "Table doesn't exist!")
+	
 	(_tables[table] as DataTable).update()
-
-func create_update_interval(table: StringName, time_sec: float) -> void:
-	if not enabled:
-		return
-	
-	assert(time_sec > 0.0, "Cannot update telemetry data infinitely!")
-	
-	# TODO: Replace w cancelable signal
-	get_tree().create_timer(time_sec, true, false, true).timeout.connect(
-		func() -> void:
-			update(table)
-			create_update_interval(table, time_sec)
-		
-			, CONNECT_ONE_SHOT)
 
 func _create_table(table: StringName) -> void:
 	if not enabled:
@@ -118,7 +109,7 @@ func _create_table(table: StringName) -> void:
 	_tables[table] = DataTable.new(FileAccess.open(_telemetry_dir_str + table + _CSV_EXT_STR, FileAccess.WRITE))
 
 class DataTable:
-	var labels: Array[StringName] = []
+	var labels: Array[StringName] = [&"Timestamp"]
 	var values: Array[Box] = []
 	var stream: FileAccess = null
 	
@@ -138,7 +129,10 @@ class DataTable:
 		if num_updates <= 0:
 			stream.store_csv_line(labels)
 		
-		stream.store_csv_line(values.map(_retrieve))
+		var values := values.map(_retrieve)
+		values.push_front(Time.get_datetime_string_from_system())
+		
+		stream.store_csv_line(values)
 		
 		num_updates += 1
 	

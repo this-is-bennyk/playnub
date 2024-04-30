@@ -283,12 +283,12 @@ func _init(_data_ = null, _key_ = null) -> void:
 
 ## Writes [param new_data] into the box. If the [param new_key] is not [code]null[/code], it will access a certain
 ## part of the object, depending on its type:[br]
-## If the [param new_data] is a [Dictionary], the [param new_key] may be anything.[br]
-## If the [param new_data] is an array type (ex. [Array], [PackedInt64Array], etc.), the [param new_key] must be an [int].[br]
-## If the [param new_data] is a [PackedDataContainer], the [param new_key] must be an [int], a [String], or a [StringName].[br]
-## If the [param new_data] is an [Object], the [param new_key] must be an [NodePath] (akin to [method Tween.tween_property]).[br]
-## If the [param new_data] is a [Callable], the [param new_key] must be [code]true[/code] or [code]false[/code], and the
-## signature of the [Callable] must match one of the following:[br]
+## · If the [param new_data] is a [Dictionary], the [param new_key] may be anything.[br]
+## · If the [param new_data] is an array type (ex. [Array], [PackedInt64Array], etc.), the [param new_key] must be an [int].[br]
+## · If the [param new_data] is a [PackedDataContainer], the [param new_key] must be an [int], a [String], or a [StringName].[br]
+## · If the [param new_data] is an [Object], the [param new_key] must be an [NodePath] (akin to [method Tween.tween_property]).[br]
+## · If the [param new_data] is a [Callable], the [param new_key] must be [code]true[/code] or [code]false[/code], and the
+## signature of the [Callable] must match one of the following (or binded such that the remaining parameters match the following):[br]
 ## As a method:
 ## [codeblock]
 ## func box_setget(setting: bool, value = null) -> Variant:

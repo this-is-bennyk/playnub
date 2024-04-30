@@ -23,11 +23,22 @@
 class_name BoxFiller
 extends Resource
 
+## Interface for initializing [Box]es in the editor.
+## 
+## This class provides an extension interface for the [Box] class, since it is
+## difficult to accommodate for all kinds of data to initialize in the editor.
+## Inherit from this class to create designer-controlled values for [Resource]s
+## that use [Box]es.
+
 var data = null
 var key = null
 
 func _init():
 	setup()
 
+## The function to inherit from to initialize [member data] and [member key].
+## Expose customer parameters with exported variables, then assign them to
+## [member data] and [member key] as you see fit. See [method Box.rewrite]
+## for more information on how to set up those two member variables.
 func setup() -> void:
 	assert(false, "Abstract function!")
