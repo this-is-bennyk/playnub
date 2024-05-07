@@ -33,3 +33,6 @@ var automator := get_component(Automator) as Automator
 
 @onready
 var telemeter := get_component(Telemeter) as Telemeter
+
+@onready
+var randomizer := get_component(Randomizer) as Randomizer
