@@ -38,7 +38,7 @@ func _ready() -> void:
 
 func randomize() -> void:
 	_rng.randomize()
-	Playnub.telemeter.watch_single_datum(&"Seed", Box.new(_rng, "seed"), &"RandomizationData")
+	(Playnub.get_component(Telemeter) as Telemeter).watch_single_datum(&"Seed", Box.new(_rng, "seed"), &"RandomizationData")
 
 func randi() -> int:
 	return _rng.randi()

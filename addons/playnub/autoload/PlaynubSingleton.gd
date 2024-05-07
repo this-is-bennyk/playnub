@@ -26,7 +26,7 @@ extends Entity
 ## The singleton for all global Playnub instances.
 ## 
 ## This is a class for convenience, making key features like general-purpose
-## automation and general-purpose telemetry easy to plugin to any project.
+## automation and general-purpose telemetry accessible.
 
 @onready
 var automator := get_component(Automator) as Automator
