@@ -1,19 +1,26 @@
-[gd_scene load_steps=5 format=3 uid="uid://6tbp12qslt0p"]
+[gd_scene load_steps=6 format=3 uid="uid://6tbp12qslt0p"]
 
 [ext_resource type="Script" path="res://addons/playnub/autoload/PlaynubSingleton.gd" id="1_53hhr"]
 [ext_resource type="Script" path="res://addons/playnub/autoload/automation/Automator.gd" id="2_jam1u"]
 [ext_resource type="Script" path="res://addons/playnub/autoload/telemetry/Telemeter.gd" id="3_qnt4v"]
+[ext_resource type="Script" path="res://addons/playnub/game_ai/action_list/ActionList.gd" id="4_dh7xn"]
 [ext_resource type="Script" path="res://addons/playnub/autoload/randomization/Randomizer.gd" id="4_hh435"]
 
 [node name="PlaynubSingleton" type="Node"]
 process_mode = 3
 script = ExtResource("1_53hhr")
 
-[node name="Automator" type="Node" parent="."]
-script = ExtResource("2_jam1u")
-
 [node name="Telemeter" type="Node" parent="."]
 script = ExtResource("3_qnt4v")
+
+[node name="Automator" type="Node" parent="." node_paths=PackedStringArray("automation_list")]
+script = ExtResource("2_jam1u")
+automation_list = NodePath("../AutomationList")
+record_inputs = true
+actions_to_record = Array[StringName]([&"ui_accept"])
+
+[node name="AutomationList" type="Node" parent="."]
+script = ExtResource("4_dh7xn")
 
 [node name="Randomizer" type="Node" parent="."]
 script = ExtResource("4_hh435")

@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Telemeter
 extends UniqueComponent
 
 ## Performs custom telemetry with given game data.
@@ -29,6 +28,8 @@ extends UniqueComponent
 ## player-facing data; it records progress for players over long durations of time.
 ## Telemetry is developer-facing data; it records real-time data of the state of
 ## the game in temporary logs for design analysis.
+
+class_name Telemeter
 
 const _USR_DIR_STR := &"user://"
 const _TELEMETRY_HIGH_LVL_DIR_STR := &"Playnub/Telemetry"
@@ -41,14 +42,15 @@ const _HOUR_STR := &"_H"
 const _MIN_STR := &"_M"
 const _SEC_STR := &"_S"
 
+## Whether to let the telemetry run or not.
+@export
+var enabled := true
+
 ## Whether to stop recording telemetry data upon release of the game. Multiplayer
 ## and/or live-service games may want to continue recording telemetry to evaluate
 ## and change the game over time.
 @export
 var disable_on_release := true
-
-## Whether to let the telemetry run or not.
-var enabled := true
 
 var _telemetry_dir_str := ""
 
@@ -125,7 +127,7 @@ func _create_table(table: StringName) -> void:
 	_tables[table] = DataTable.new(FileAccess.open(_telemetry_dir_str + table + _CSV_EXT_STR, FileAccess.WRITE))
 
 class DataTable:
-	var labels: Array[StringName] = [&"Timestamp"]
+	var labels: Array[StringName] = [&"General Timestamp", &"Exact Timestamp"]
 	var values: Array[Box] = []
 	var stream: FileAccess = null
 	
@@ -146,6 +148,7 @@ class DataTable:
 			stream.store_csv_line(labels)
 		
 		var values := values.map(_retrieve)
+		values.push_front(Time.get_ticks_usec())
 		values.push_front(Time.get_datetime_string_from_system())
 		
 		stream.store_csv_line(values)

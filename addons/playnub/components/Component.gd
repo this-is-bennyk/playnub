@@ -20,8 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Component
 extends ExtendedNode
+
+## The smallest logical unit of functionality.
+## 
+## Act as modular containers of data and logic for parent [Entity]s to use.
+
+class_name Component
 
 var parent: Entity:
 	get:

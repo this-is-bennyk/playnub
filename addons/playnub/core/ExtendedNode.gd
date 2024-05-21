@@ -21,11 +21,12 @@
 # SOFTWARE.
 
 class_name ExtendedNode
-extends Node
 
 ## An extension of the default [Node] with QoL features.
 ##
 ## This class acts as an interface for all [Node]s in the Playnub plugin.
+
+extends Node
 
 var attached_script: Script:
 	get:

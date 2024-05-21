@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Box
 extends Resource
 
 ## A reference-counted wrapper around a value by itself or inside an object.
@@ -29,8 +28,10 @@ extends Resource
 ## are not passed by reference, and you cannot pass a reference to a member variable
 ## (except in certain situations, like with the [Tween]). This would mean duplicating
 ## code to pass around values of particular objects to other places, so the [Box]
-## aims to avoid that, and add additional functionality to access specific parts of
+## lets one do this, and adds additional functionality to access specific parts of
 ## complex objects.
+
+class_name Box
 
 @export
 var filler: BoxFiller = null
@@ -65,208 +66,6 @@ var data:
 				assert(false, "Data cannot be indexed!")
 		else:
 			_actual_data = value
-
-#region Built-in Types
-
-var boolean: bool:
-	get:
-		return data as bool
-	set(value):
-		data = value
-
-var integer: int:
-	get:
-		return data as int
-	set(value):
-		data = value
-
-var floating_point: float:
-	get:
-		return data as float
-	set(value):
-		data = value
-
-var string: String:
-	get:
-		return data as String
-	set(value):
-		data = value
-
-var string_name: StringName:
-	get:
-		return data as StringName
-	set(value):
-		data = value
-
-var nodepath: NodePath:
-	get:
-		return data as NodePath
-	set(value):
-		data = value
-
-var vec2: Vector2:
-	get:
-		return data as Vector2
-	set(value):
-		data = value
-
-var vec2i: Vector2i:
-	get:
-		return data as Vector2i
-	set(value):
-		data = value
-
-var rect2: Rect2:
-	get:
-		return data as Rect2
-	set(value):
-		data = value
-
-var vec3: Vector3:
-	get:
-		return data as Vector3
-	set(value):
-		data = value
-
-var vec3i: Vector3i:
-	get:
-		return data as Vector3i
-	set(value):
-		data = value
-
-var transform2D: Transform2D:
-	get:
-		return data as Transform2D
-	set(value):
-		data = value
-
-var plane: Plane:
-	get:
-		return data as Plane
-	set(value):
-		data = value
-
-var quaternion: Quaternion:
-	get:
-		return data as Quaternion
-	set(value):
-		data = value
-
-var aabb: AABB:
-	get:
-		return data as AABB
-	set(value):
-		data = value
-
-var basis: Basis:
-	get:
-		return data as Basis
-	set(value):
-		data = value
-
-var transform3D: Transform3D:
-	get:
-		return data as Transform3D
-	set(value):
-		data = value
-
-var color: Color:
-	get:
-		return data as Color
-	set(value):
-		data = value
-
-var rid: RID:
-	get:
-		return data as RID
-	set(value):
-		data = value
-
-var object: Object:
-	get:
-		return data as Object
-	set(value):
-		data = value
-
-var array: Array:
-	get:
-		return data as Array
-	set(value):
-		data = value
-
-var packed_byte_array: PackedByteArray:
-	get:
-		return data as PackedByteArray
-	set(value):
-		data = value
-
-var packed_int32_array: PackedInt32Array:
-	get:
-		return data as PackedInt32Array
-	set(value):
-		data = value
-
-var packed_int64_array: PackedInt64Array:
-	get:
-		return data as PackedInt64Array
-	set(value):
-		data = value
-
-var packed_float32_array: PackedFloat32Array:
-	get:
-		return data as PackedFloat32Array
-	set(value):
-		data = value
-
-var packed_float64_array: PackedFloat64Array:
-	get:
-		return data as PackedFloat64Array
-	set(value):
-		data = value
-
-var packed_string_array: PackedStringArray:
-	get:
-		return data as PackedStringArray
-	set(value):
-		data = value
-
-var packed_vec2_array: PackedVector2Array:
-	get:
-		return data as PackedVector2Array
-	set(value):
-		data = value
-
-var packed_vec3_array: PackedVector3Array:
-	get:
-		return data as PackedVector3Array
-	set(value):
-		data = value
-
-var packed_color_array: PackedColorArray:
-	get:
-		return data as PackedColorArray
-	set(value):
-		data = value
-
-var dictionary: Dictionary:
-	get:
-		return data as Dictionary
-	set(value):
-		data = value
-
-var signal_: Signal:
-	get:
-		return data as Signal
-	set(value):
-		data = value
-
-var callable: Callable:
-	get:
-		return data as Callable
-	set(value):
-		data = value
-
-#endregion
 
 var _actual_data = null
 var _key = null
@@ -332,6 +131,9 @@ func rewrite(new_data, new_key = null) -> void:
 	if _key != null:
 		if is_array:
 			assert(_key is int, "Key for array type is not int!")
+		
+		elif _actual_data is Dictionary:
+			return
 		
 		elif is_packed_data_container:
 			assert(_key is int or _key is String or _key is StringName, "Key for PackedDataContainer type is not int/String/StringName!")

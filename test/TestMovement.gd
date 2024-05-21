@@ -11,6 +11,9 @@ func _ready():
 	var action_list := parent.get_component(ActionList) as ActionList
 	
 	var ctrl_curve_copy := control_curve.duplicate() as ControlCurve
+	
+	#ctrl_curve_copy.start = Box.new((parent.upcasted as Sprite2D).position)
+	
 	ctrl_curve_copy.between(Box.new((parent.upcasted as Sprite2D).position), Box.new(point_to_follow, "position"))
 	
 	action_list.push(

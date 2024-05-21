@@ -20,8 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name InputEventSender
 extends Action
+
+## Simulates a certain [InputEvent], as if a user did the event.
+
+class_name InputEventSender
 
 var _begin_event: InputEvent = null
 var _end_event: InputEvent = null

@@ -20,12 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Action
 extends RefCounted
 
 ## Performs logic grouped as a singular unit.
 ##
 ## TODO
+
+class_name Action
 
 ## Time in seconds this action lasts.
 var duration := 0.0:

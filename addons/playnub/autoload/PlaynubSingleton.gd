@@ -20,13 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name PlaynubSingleton
 extends Entity
 
 ## The singleton for all global Playnub instances.
 ## 
 ## This is a class for convenience, making key features like general-purpose
 ## automation and general-purpose telemetry accessible.
+
+class_name PlaynubSingleton
 
 @onready
 var automator := get_component(Automator) as Automator

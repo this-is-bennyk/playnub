@@ -18,6 +18,10 @@ config/icon="res://icon.svg"
 
 Playnub="*res://addons/playnub/autoload/PlaynubSingleton.tscn"
 
+[dotnet]
+
+project/assembly_name="Playnub Plugin"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/playnub/plugin.cfg")

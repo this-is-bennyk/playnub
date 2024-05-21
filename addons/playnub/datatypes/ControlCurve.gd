@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name ControlCurve
 extends Resource
 
 ## Creates a curve for interpolations to use.
@@ -28,6 +27,8 @@ extends Resource
 ## (Technically, a control curve is three curves: an attack curve, a sustain line,
 ## and a release curve. However, this is the closest terminology that describes the
 ## function of this resource.)
+
+class_name ControlCurve
 
 enum InterpolationType
 {

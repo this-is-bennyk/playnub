@@ -20,8 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name MultiComponent
 extends Component
+
+## A [Component] that an [Entity] can have any number of instances of.
+## 
+## Interface for inherited [Component]s to use if it makes sense for an [Entity]
+## to have an arbitrary number of a given [Component].
+
+class_name MultiComponent
 
 func _register() -> void:
 	parent.get_all_components(attached_script).append(self)

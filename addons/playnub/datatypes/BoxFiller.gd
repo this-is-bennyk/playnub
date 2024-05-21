@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name BoxFiller
 extends Resource
 
 ## Interface for initializing [Box]es in the editor.
@@ -30,10 +29,12 @@ extends Resource
 ## Inherit from this class to create designer-controlled values for [Resource]s
 ## that use [Box]es.
 
+class_name BoxFiller
+
 var data = null
 var key = null
 
-func _init():
+func _init() -> void:
 	setup()
 
 ## The function to inherit from to initialize [member data] and [member key].

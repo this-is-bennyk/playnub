@@ -20,12 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Interpolator
 extends Action
 
 ## Performs an interpolation on a value over time as an [Action].
 ##
 ## TODO
+
+class_name Interpolator
 
 var control_curve: ControlCurve = null
 var relative := true
@@ -33,6 +34,14 @@ var relative := true
 func controlled_by(_control_curve: ControlCurve) -> Interpolator:
 	control_curve = _control_curve
 	return self
+
+func starts_absolute() -> Interpolator:
+	relative = false
+	return self
+
+func enter() -> void:
+	if relative:
+		control_curve.start = Box.new((target as Box).data)
 
 func update() -> void:
 	(target as Box).data = get_current_value()

@@ -20,8 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name UniqueComponent
 extends Component
+
+## A [Component] that an [Entity] can have only one instance of.
+## 
+## Interface for inherited [Component]s to use if it makes sense for an [Entity]
+## to have only one of a given [Component].
+
+class_name UniqueComponent
 
 func _register() -> void:
 	var components := parent.get_all_components(attached_script)

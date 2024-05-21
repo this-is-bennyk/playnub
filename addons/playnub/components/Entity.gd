@@ -20,8 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Entity
 extends ExtendedNode
+
+## A container of [Component]s.
+## 
+## The container object of [Component]s. Allows for composition over inheritance.
+
+class_name Entity
 
 func get_all_components(script: Script) -> Array[Component]:
 	if not has_meta(script.get_global_name()):

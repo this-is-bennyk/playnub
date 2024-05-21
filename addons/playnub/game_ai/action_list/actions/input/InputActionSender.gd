@@ -20,8 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name InputActionSender
 extends InputEventSender
+
+## Simulates a certain [InputEventAction], as if a user did the action.
+
+class_name InputActionSender
 
 func sends(action_name: StringName) -> InputActionSender:
 	var begin := InputEventAction.new()

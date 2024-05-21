@@ -20,12 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name ActionList
 extends MultiComponent
 
 ## Executes logic on a node based on an ordered list of [Action]s.
 ##
 ## TODO
+
+class_name ActionList
 
 ## Multiplies the delta time passed to each action by the given amount.
 ## Useful for speeding up, slowing down, or stopping [Action]s.

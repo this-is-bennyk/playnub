@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name Randomizer
 extends UniqueComponent
 
 ## Enhances existing random logic with game-specific randomization functions.
@@ -30,10 +29,13 @@ extends UniqueComponent
 ## interactions and/or events more believably random, even if that's not truly the
 ## case.
 
+class_name Randomizer
+
 var _rng := RandomNumberGenerator.new()
 var _deck_indices: Dictionary = {}
 
 func _ready() -> void:
+	super()
 	self.randomize()
 
 func randomize() -> void:
