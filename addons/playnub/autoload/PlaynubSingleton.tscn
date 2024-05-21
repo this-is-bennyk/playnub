@@ -16,8 +16,6 @@ script = ExtResource("3_qnt4v")
 [node name="Automator" type="Node" parent="." node_paths=PackedStringArray("automation_list")]
 script = ExtResource("2_jam1u")
 automation_list = NodePath("../AutomationList")
-record_inputs = true
-actions_to_record = Array[StringName]([&"ui_accept"])
 
 [node name="AutomationList" type="Node" parent="."]
 script = ExtResource("4_dh7xn")
