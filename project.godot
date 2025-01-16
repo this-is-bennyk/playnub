@@ -16,7 +16,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-Playnub="*res://addons/playnub/autoload/PlaynubSingleton.tscn"
+PlaynubTelemeter="*res://addons/playnub/singletons/Telemeter.gd"
 
 [dotnet]
 
