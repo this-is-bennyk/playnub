@@ -27,7 +27,7 @@ extends Resource
 ##
 ## Unlike traditional software, almost all, if not all, data and events in a game
 ## benefit from progressing or changing in an arc-like manner, with the design patterns
-## setup-hook-development-turn-resolution arcs and attack-sustain-release for short ones.
+## setup-hook-development-turn-resolution arcs and attack-(delay-)sustain-release for short ones.
 ## The [ControlCurve] allows one to define these arcs for any kind of continuous data.[br]
 ## (Technically, a control curve is three curves: an attack curve, a sustain line,
 ## and a release curve. However, this is the closest terminology that describes the
@@ -65,42 +65,57 @@ enum EasingType
 @export
 var interpolation_type: InterpolationType = InterpolationType.LINEAR
 
+## The starting value of the interpolation.
 @export
 var start: Box = null
 
+## The ending value of the interpolation.
 @export
 var end: Box = null
 
 @export_subgroup("Cubic Interpolation (in Time)")
 
+## The value before the start, curving the beginning of the interpolation.
 @export
 var prestart: Box = null
 
+## The time value before the beginning time of the interpolation.
 @export
 var prestart_time: float = 0.0
 
+## The value after the end, curving the end of the interpolation.
 @export
 var postend: Box = null
 
+## The time value after the end time of the interpolation.
 @export
 var postend_time: float = 0.0
 
+## The end time of the interpolation.
 @export
 var end_time: float = 0.0
 
 @export_subgroup("Bézier Interpolation")
 
+## The first handle of the interpolation.
 @export
 var control_1: Box = null
 
+## The second handle of the interpolation.
 @export
 var control_2: Box = null
 
 @export_subgroup("Spherical Interpolation")
 
+## If enabled and the interpolation is a 2D angle or a 3D quaternion, interpolate
+## to the nearest angle instead using the absolute numerical value.
 @export
 var spherical := false
 
+## If enabled and the interpolation is a 3D quaternion, interpolate
+## to the nearest angle instead using the absolute numerical value, but don't check
+## if the rotation is greater than 90 degrees. See [method Quaternion.slerpni] for
+## more information.
 @export
 var use_slerpni_for_quats := false
 
@@ -115,30 +130,41 @@ var easing_type: EasingType = EasingType.BUILT_IN
 
 @export_subgroup("Built-in", "built_in_")
 
+## The native Godot transition type to use. See [Tween] for more information.
 @export
 var built_in_transition: Tween.TransitionType = Tween.TRANS_LINEAR
 
+## The native Godot easing type to use. See [Tween] for more information.
 @export
 var built_in_easing: Tween.EaseType = Tween.EASE_IN
 
 @export_subgroup("Arbitrary Curve")
 
+## The curve to use, drawable in-editor by a designer. As of Godot 4.4, the [Curve]'s
+## domain (x-axis) can be extended beyond [code][0, 1][/code]. Please do not change
+## this, as only x-values between [code][0, 1][/code] will be evaluated.
 @export
 var arbitrary_curve: Curve = null
 
+## Whether to evaluate the state of this curve every time it is sampled for an
+## interpolation. Useful if the curve changes as the interpolation is occurring.
 @export
 var dynamically_sample_curve := false
 
 @export_subgroup("Arbitrary Equation")
 
+## The equation to evaluate for the interpolation.
 @export
 var equation: InterpolationEquation = null
 
 @export_subgroup("ease()")
 
+## The curve that [method @GlobalScope.ease] should use for the interpolation.
 @export_exp_easing
 var ease_function_curve := 0.0
 
+## Returns the interpolated value at the given [param weight].
+## [param weight] must be in the range [code][0, 1][/code].
 func at(weight: float) -> Variant:
 	var xformed_weight := _get_transformed_weight(weight)
 	
@@ -151,6 +177,8 @@ func at(weight: float) -> Variant:
 	
 	return _lerp(start.data, end.data, xformed_weight)
 
+## Creates and returns a copy of this curve. [param deep] determines whether to
+## fully copy the nested resources of this curve.
 func clone(deep: bool = false) -> ControlCurve:
 	return duplicate(deep) as ControlCurve
 
