@@ -162,7 +162,6 @@ func update(delta: float, target_position: Variant, target_velocity: Variant = n
 		stable_sys_accel_factor = maxf(_system_acceleration_factor, maxf(delta * delta / 2 + delta * _system_velocity_factor / 2.0, delta * _system_velocity_factor))
 	else:
 		# Use pole matching to get accurate values when the system is very fast
-		# REMARK: Tbh I don't rly know how this works lol
 		var z_domain_pole := exp(-damping_coefficient * _angular_frequency * delta)
 		var trace_char_poly := 2.0 * z_domain_pole * (cos(_laplance_pole_range * delta) if damping_coefficient <= 1.0 else cosh(_laplance_pole_range * delta))
 		var det_char_poly := z_domain_pole * z_domain_pole
