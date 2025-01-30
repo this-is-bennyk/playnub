@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="DrivenHarmonicOscillator" load_steps=2 format=3 uid="uid://dtl3wb1ymfckv"]
+
+[ext_resource type="Script" path="res://addons/playnub/datatypes/physics/driven_harmonic_oscillator/DrivenHarmonicOscillator.gd" id="1_011et"]
+
+[resource]
+script = ExtResource("1_011et")
+frequency = 3.0
+damping_coefficient = 0.1
+initial_response = -2.0
+accurate_motion_tracking = true

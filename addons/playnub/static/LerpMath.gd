@@ -27,7 +27,7 @@ class_name LerpMath
 ## Borrows lerping techniques from others and puts them into one cohesive file,
 ## to be reused across Playnub files and used directly within projects.
 ## 
-## @tutorial(Freya Holmér on lerp smoothing): https://www.youtube.com/watch?v=LSNQuFEDOyQ
+## @tutorial(Freya Holmér: ":erp smoothing is broken"): https://www.youtube.com/watch?v=LSNQuFEDOyQ
 
 ## The minimum of the "useful range" of exponential decay lerp values.
 ## See the tutorial "Freya Holmér on lerp smoothing" for more information.
