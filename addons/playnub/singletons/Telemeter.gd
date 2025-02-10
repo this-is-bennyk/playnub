@@ -58,6 +58,7 @@ enum FileType
 {
 	  CSV
 	, SQL
+	, SQLITE
 }
 
 var enabled: bool:
@@ -68,6 +69,8 @@ var _telemetry_dir_str := ""
 var _telemetry_session_str := ""
 var _tables: Dictionary = {}
 var _file_type := FileType.CSV
+
+var _sqlite_db: SQLite = null
 
 func _ready() -> void:
 	if not enabled:
@@ -92,7 +95,7 @@ func _ready() -> void:
 	
 	_file_type = PlaynubGlobals.get_proj_setting(&"telemeter/file_type") as FileType
 	
-	if _file_type == FileType.SQL:
+	if _file_type == FileType.SQL or _file_type == FileType.SQLITE:
 		_initialize_sql()
 
 ## Watches the boxed [param value] labeled as [param label] in the table with the name [param table_name].[br]
@@ -133,6 +136,10 @@ func _create_table(table: StringName) -> void:
 	if not enabled:
 		return
 	
+	if _file_type == FileType.SQLITE:
+		_tables[table] = DataTable.new(null, _file_type, table, self)
+		return
+	
 	var extension := _CSV_EXT_STR
 	
 	if _file_type == FileType.SQL:
@@ -141,34 +148,47 @@ func _create_table(table: StringName) -> void:
 	_tables[table] = DataTable.new(FileAccess.open(_telemetry_session_str + table + extension, FileAccess.WRITE), _file_type, table, self)
 
 func _initialize_sql() -> void:
-	if OS.has_feature(&"editor") and PlaynubGlobals.get_proj_setting(&"telemeter/SQL/create_database"):
-		_create_database()
+	if not enabled:
+		return
+	
+	_create_database()
 
 func _create_database() -> void:
-	var db_creator := FileAccess.open(_telemetry_dir_str + _DB_CREATOR_FILE, FileAccess.WRITE)
 	var app_name := (ProjectSettings.get_setting(&"application/config/name") as String).validate_filename().replace(" ", "")
 	
-	_write_sql_header(db_creator, &"Creation Script")
+	# Write to a SQL database
+	# TODO: Make it independent of the SQLite plugin (either integrating directly into the project or trusting duck typing)
+	if _file_type == FileType.SQLITE:
+		_sqlite_db = SQLite.new()
+		
+		_sqlite_db.path = _telemetry_session_str + app_name + ".db"
+		_sqlite_db.open_db()
 	
-	db_creator.store_string(_NEWLINE)
-	
-	db_creator.store_string(&"CREATE DATABASE IF NOT EXISTS ")
-	db_creator.store_string(app_name)
-	db_creator.store_string(_SQL_TERMINATOR)
-	
-	db_creator.store_string(&"USE ")
-	db_creator.store_string(app_name)
-	db_creator.store_string(_SQL_TERMINATOR)
-	
-	var db_dropper := FileAccess.open(_telemetry_dir_str + _DB_DROPPER_FILE, FileAccess.WRITE)
-	
-	_write_sql_header(db_dropper, &"Deletion Script")
-	
-	db_dropper.store_string(_NEWLINE)
-	
-	db_dropper.store_string(&"DROP DATABASE IF EXISTS ")
-	db_dropper.store_string(app_name)
-	db_dropper.store_string(_SQL_TERMINATOR)
+	# Write to a SQL file
+	else:
+		var db_creator := FileAccess.open(_telemetry_dir_str + _DB_CREATOR_FILE, FileAccess.WRITE)
+		
+		_write_sql_header(db_creator, &"Creation Script")
+		
+		db_creator.store_string(_NEWLINE)
+		
+		db_creator.store_string(&"CREATE DATABASE IF NOT EXISTS ")
+		db_creator.store_string(app_name)
+		db_creator.store_string(_SQL_TERMINATOR)
+		
+		db_creator.store_string(&"USE ")
+		db_creator.store_string(app_name)
+		db_creator.store_string(_SQL_TERMINATOR)
+		
+		var db_dropper := FileAccess.open(_telemetry_dir_str + _DB_DROPPER_FILE, FileAccess.WRITE)
+		
+		_write_sql_header(db_dropper, &"Deletion Script")
+		
+		db_dropper.store_string(_NEWLINE)
+		
+		db_dropper.store_string(&"DROP DATABASE IF EXISTS ")
+		db_dropper.store_string(app_name)
+		db_dropper.store_string(_SQL_TERMINATOR)
 
 func _write_sql_header(file: FileAccess, subtitle: StringName) -> void:
 	file.store_string(_DB_HEADER_TITLE)
@@ -206,6 +226,7 @@ class DataTable:
 	var labels: Array[StringName] = [&"Tickstamp", &"Timestamp"]
 	var values: Array[Box] = []
 	var stream: FileAccess = null
+	var database: SQLite = null
 	
 	var label_indices := {}
 	
@@ -220,6 +241,8 @@ class DataTable:
 		
 		if file_type == Telemeter.FileType.SQL:
 			_initialize_sql(telemeter)
+		elif file_type == Telemeter.FileType.SQLITE:
+			database = telemeter._sqlite_db
 	
 	func record(new_labels: Array[StringName], new_values: Array[Box]) -> void:
 		_split_values(new_labels, new_values)
@@ -247,7 +270,7 @@ class DataTable:
 		var current_values := values.map(_retrieve)
 		var datetime_string := Time.get_datetime_string_from_system(false, true)
 		
-		if file_type == Telemeter.FileType.SQL:
+		if file_type == Telemeter.FileType.SQL or file_type == Telemeter.FileType.SQLITE:
 			datetime_string = _DBL_QUOTE + datetime_string + _DBL_QUOTE
 		
 		current_values.push_front(datetime_string)
@@ -258,7 +281,7 @@ class DataTable:
 		num_updates += 1
 	
 	func _retrieve(datum: Box) -> Variant:
-		if file_type == Telemeter.FileType.SQL:
+		if file_type == Telemeter.FileType.SQL or file_type == Telemeter.FileType.SQLITE:
 			var content: Variant = datum.data
 			
 			match typeof(content):
@@ -418,10 +441,7 @@ class DataTable:
 		new_values.assign(modded_values)
 	
 	func _write_column_headers(appended_start := 0) -> void:
-		#if appended_start != 0 and appended_start <= labels.size():
-			#return
-		#
-		if file_type == Telemeter.FileType.SQL:
+		if file_type == Telemeter.FileType.SQL or file_type == Telemeter.FileType.SQLITE:
 			if num_updates <= 0:
 				_create_sql_table()
 			else:
@@ -430,7 +450,7 @@ class DataTable:
 			stream.store_csv_line(labels)
 	
 	func _write_row(current_values: Array) -> void:
-		if file_type == Telemeter.FileType.SQL:
+		if file_type == Telemeter.FileType.SQL or file_type == Telemeter.FileType.SQLITE:
 			_write_sql_tuple(current_values)
 		else:
 			stream.store_csv_line(current_values)
@@ -442,43 +462,70 @@ class DataTable:
 		stream.store_string(Telemeter._NEWLINE)
 	
 	func _create_sql_table() -> void:
-		stream.store_string(&"CREATE TABLE IF NOT EXISTS ")
-		stream.store_string(table_name)
-		stream.store_string(_NEWLINE)
-		stream.store_string(&"(\n")
+		var query := ""
+		
+		query += &"CREATE TABLE IF NOT EXISTS "
+		query += _SQL_ID_QUOTE
+		query += table_name
+		query += _SQL_ID_QUOTE
+		query += _NEWLINE
+		query += &"(\n"
 		
 		for idx: int in labels.size():
-			stream.store_string(_TAB)
-			_create_sql_column(idx)
+			query += _TAB
+			query += _create_sql_column(idx)
 			
 			if idx < labels.size() - 1:
-				stream.store_string(&",\n")
+				query += &",\n"
 			else:
-				stream.store_string(_NEWLINE)
-			
-			if idx == 1:
-				stream.store_string(_TAB + &"PRIMARY KEY(`Tickstamp`, `Timestamp`),\n")
+				query += _NEWLINE
 		
-		stream.store_string(&");\n")
-		stream.store_string(_NEWLINE)
+		query += &");\n"
+		query += _NEWLINE
+		
+		if file_type == Telemeter.FileType.SQLITE:
+			var success := database.query(query)
+			assert(success, database.error_message)
+			
+		else:
+			stream.store_string(query)
 	
 	func _alter_sql_table(appended_start: int) -> void:
-		stream.store_string(_NEWLINE)
+		var query := ""
+		
+		query += _NEWLINE
+		
 		for idx: int in range(appended_start, labels.size()):
-			stream.store_string(&"ALTER TABLE ")
-			stream.store_string(table_name)
-			stream.store_string(_NEWLINE)
-			stream.store_string(&"ADD COLUMN ")
-			_create_sql_column(idx)
-			stream.store_string(_SQL_TERMINATOR)
-		stream.store_string(_NEWLINE)
+			query += &"ALTER TABLE "
+			query += _SQL_ID_QUOTE
+			query += table_name
+			query += _SQL_ID_QUOTE
+			query += _NEWLINE
+			query += &"ADD COLUMN "
+			query += _create_sql_column(idx)
+			query += _SQL_TERMINATOR
+		
+		query += _NEWLINE
+		
+		if file_type == Telemeter.FileType.SQLITE:
+			var success := database.query(query)
+			assert(success, database.error_message)
+			
+		else:
+			stream.store_string(query)
 	
-	func _create_sql_column(col_idx: int) -> void:
-		stream.store_string(_SQL_ID_QUOTE + labels[col_idx] + _SQL_ID_QUOTE)
+	func _create_sql_column(col_idx: int) -> String:
+		var column := ""
+		
+		column += _SQL_ID_QUOTE + labels[col_idx] + _SQL_ID_QUOTE
 		
 		if col_idx < _COL_OFFSET:
-			stream.store_string(&" BIGINT" if col_idx == 0 else &" DATETIME")
-			return
+			column += &" BIGINT" if col_idx == 0 else &" DATETIME"
+			
+			if col_idx == 0:
+				column += &" PRIMARY KEY NOT NULL"
+			
+			return column
 		
 		col_idx -= _COL_OFFSET
 		
@@ -487,25 +534,36 @@ class DataTable:
 		
 		match data_type:
 			TYPE_BOOL:
-				stream.store_string(&" BOOL")
+				column += &" BOOL"
 			TYPE_INT:
-				stream.store_string(&" BIGINT")
+				column += &" BIGINT"
 			TYPE_FLOAT:
-				stream.store_string(&" DOUBLE")
+				column += &" DOUBLE"
 			TYPE_STRING, TYPE_STRING_NAME:
-				stream.store_string(&" VARCHAR(")
-				stream.store_string(str(PlaynubGlobals.get_proj_setting(&"telemeter/SQL/string_varchar_initial_size")))
-				stream.store_string(&")")
+				column += &" VARCHAR("
+				column += str(PlaynubGlobals.get_proj_setting(&"telemeter/SQL/string_varchar_initial_size"))
+				column += &")"
 			_:
 				var string := var_to_str(data)
-				stream.store_string(&" VARCHAR(")
-				stream.store_string(str(clampi(string.length() + PlaynubGlobals.get_proj_setting(&"telemeter/SQL/variant_varchar_padding_size"), 0, _SQL_VARCHAR_LIMIT)))
-				stream.store_string(&")")
+				column += &" VARCHAR("
+				column += str(clampi(string.length() + PlaynubGlobals.get_proj_setting(&"telemeter/SQL/variant_varchar_padding_size"), 0, _SQL_VARCHAR_LIMIT))
+				column += &")"
+		
+		return column
 	
 	func _write_sql_tuple(current_values: Array) -> void:
-		stream.store_string(&"INSERT INTO ")
-		stream.store_string(table_name)
-		stream.store_string(_NEWLINE)
-		stream.store_string(&"VALUES (")
-		stream.store_string(_COMMA_DELIMITER.join(current_values))
-		stream.store_string(&");\n")
+		var query := ""
+		
+		query += &"INSERT INTO "
+		query += _SQL_ID_QUOTE
+		query += table_name
+		query += _SQL_ID_QUOTE
+		query += _NEWLINE
+		query += &"VALUES ("
+		query += _COMMA_DELIMITER.join(current_values)
+		query += &");\n"
+		
+		if file_type == Telemeter.FileType.SQLITE:
+			database.query(query)
+		else:
+			stream.store_string(query)

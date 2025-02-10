@@ -25,8 +25,8 @@ extends RefCounted
 
 ## Container that selects elements, affected by given probabilities.
 ## 
-## An easy way to assign rarity to certain data types, objects, functions. Also
-## useful for manipulating simple behaviors.
+## An easy way to assign rarity to certain data types, objects, functions, etc.
+## Also useful for manipulating simple behaviors.
 
 var _weights: Array[float] = []
 var _elements := []

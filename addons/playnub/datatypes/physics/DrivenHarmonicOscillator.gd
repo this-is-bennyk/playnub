@@ -59,8 +59,9 @@ var damping_coefficient := 1.0 # z
 @export_range(-1.0, 1.0, 0.0001, "hide_slider", "or_greater", "or_less")
 var initial_response := 0.0 # r
 
-## If enabled, makes the resulting motion (especially if the movement is fast) more accurate,
-## with the tradeoff of being potentially more expensive to calculate.
+## If enabled, makes the resulting motion more accurate (i.e. less jitter and less of a chance of 
+## breaking permanently, especially when the motion is fast), with the tradeoff of being potentially
+## more expensive to calculate.
 @export
 var accurate_motion_tracking := true
 

@@ -1,3 +1,11 @@
-# Godot 4+ specific ignores
+# Traditional Godot ignores
+*.log
+.vs/
 .godot/
-android/
+.import/
+export.cfg
+export_presets.cfg
+
+# Godot ignores that should be standard:
+# Auto-generated temporary DLL files (used for hot-reloading I think?)
+**/~*.dll

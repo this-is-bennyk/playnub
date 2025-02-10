@@ -74,7 +74,7 @@ const _SETTINGS_PROPERTY_DEFS := [
 	, [&"playnub/general/legal/copyright", _SETTINGS_DEFAULT_VALUES[&"playnub/general/legal/copyright"], _BASIC_SETTING]
 	
 	, [&"playnub/telemeter/enabled", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/enabled"], _BASIC_SETTING]
-	, [&"playnub/telemeter/file_type", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/file_type"], _BASIC_SETTING, PROPERTY_HINT_ENUM, "CSV,SQL"]
+	, [&"playnub/telemeter/file_type", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/file_type"], _BASIC_SETTING, PROPERTY_HINT_ENUM, "CSV,SQL,SQLite"]
 	# TODO: Commented out splitting properties, if there's a valid use case for them
 	, [&"playnub/telemeter/splitting/vector2", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/vector2"], _ADVANCED_SETTING]
 	, [&"playnub/telemeter/splitting/vector2i", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/vector2i"], _ADVANCED_SETTING]
@@ -92,7 +92,7 @@ const _SETTINGS_PROPERTY_DEFS := [
 	#, [&"playnub/telemeter/splitting/transform3D", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/transform3D"], _ADVANCED_SETTING]
 	#, [&"playnub/telemeter/splitting/projection", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/projection"], _ADVANCED_SETTING]
 	, [&"playnub/telemeter/splitting/color", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/color"], _ADVANCED_SETTING]
-	, [&"playnub/telemeter/SQL/create_database", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/SQL/create_database"], _BASIC_SETTING]
+	#, [&"playnub/telemeter/SQL/create_database", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/SQL/create_database"], _BASIC_SETTING]
 	, [&"playnub/telemeter/SQL/string_varchar_initial_size", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/SQL/string_varchar_initial_size"], _BASIC_SETTING, PROPERTY_HINT_RANGE, "0,65535,1,or_greater"]
 	, [&"playnub/telemeter/SQL/variant_varchar_padding_size", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/SQL/variant_varchar_padding_size"], _BASIC_SETTING, PROPERTY_HINT_RANGE, "0,65535,1,or_greater"]
 	
