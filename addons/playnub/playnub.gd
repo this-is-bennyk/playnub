@@ -90,6 +90,8 @@ func _remove_setting(property_path: StringName) -> void:
 
 func _add_singletons() -> void:
 	add_autoload_singleton(&"PlaynubTelemeter", &"res://addons/playnub/singletons/Telemeter.gd")
+	add_autoload_singleton(&"PlaynubRandomizer", &"res://addons/playnub/singletons/Randomizer.gd")
 
 func _remove_singletons() -> void:
 	remove_autoload_singleton(&"PlaynubTelemeter")
+	remove_autoload_singleton(&"PlaynubRandomizer")
