@@ -28,6 +28,10 @@ The Playnub plugin is a collection of many general-purpose game development patt
   - CSV, SQL file, and SQLite database support
 - Behaviors
   - Action Lists: create discrete sequences of events in code
+- Randomization
+  - Fast normal distribution randomness
+  - Complete and deck randomness
+  - Generic weighted table
 - And more!
 
 ### Future Plans
