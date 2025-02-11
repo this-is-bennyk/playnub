@@ -44,6 +44,11 @@ This project is currently in development and does not yet have a stable release.
   - Behavior Tree
   - Probability Curves
   - A* Planner
+  - Steering Behaviors
+  - Terrain Analysis and Layers
+  - Vision Cones
+- Math library
+  - Geometric mean
 
 ## Version
 Playnub requires **at least Godot 4.3**.
