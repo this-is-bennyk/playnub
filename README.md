@@ -10,16 +10,41 @@
   <a href="https://godotengine.org/download/" target="_blank" style="text-decoration:none"><img alt="Godot 4.3+" src="https://img.shields.io/badge/Godot-4.3+-%23478cbf?labelColor=CFC9C8&color=49A9B4" /></a>
 </p>
 
-## Licenses
+## Table of Contents
+- [About](#version)
+- [Version](#version)
+- [License](#license)
 
-This plugin uses a compiled version of [Godot SQLite](https://github.com/2shady4u/godot-sqlite/tree/master).
+## About
 
-MIT License
+### What is Playnub?
+The Playnub plugin is a collection of many general-purpose game development patterns, techniques, and tricks drawn from academia and online resources, as both a tool and a guide for creating games effectively and efficiently. Playnub is designed to expedite game development by providing all the tools necessary for rapid prototyping and continuous iteration-- enabling developers to focus on making the games they envision, not on programming the framework necessary to do so.
 
-Copyright (c) 2019-2024 Piet Bronders & Jeroen De Geeter
+### Features
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+- Telemetry
+  - Record continuous variables with just a few function calls
+  - Create multiple tables of data
+  - CSV, SQL file, and SQLite database support
+- Behaviors
+  - Action Lists: create discrete sequences of events in code
+- And more!
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+### Future Plans
+This project is currently in development and does not yet have a stable release. It will have one once it's in a good enough spot.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- Automation
+  - Record user input to a file
+  - Play it back for debugging and/or testing, or for in-game replays
+- Behaviors
+  - Behavior Tree
+  - Probability Curves
+  - A* Planner
+
+## Version
+Playnub requires **at least Godot 4.3**.
+
+## License
+This project is licensed under the [MIT License](https://github.com/this-is-bennyk/playnub/blob/main/LICENSE).
+
+Playnub uses a compiled version of [Godot SQLite](https://github.com/2shady4u/godot-sqlite/tree/master), licensed under the [MIT License](https://github.com/this-is-bennyk/playnub/blob/main/addons/playnub/licenses/gdsqlite_LICENSE.txt).
