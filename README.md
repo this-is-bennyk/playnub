@@ -18,7 +18,7 @@
 ## About
 
 ### What is Playnub?
-The Playnub plugin is a collection of many general-purpose game development patterns, techniques, and tricks drawn from academia and online resources, as both a tool and a guide for creating games effectively and efficiently. Playnub is designed to expedite game development by providing all the tools necessary for rapid prototyping and continuous iteration-- enabling developers to focus on making the games they envision, not on programming the framework necessary to do so.
+The Playnub plugin is a collection of many general-purpose game development patterns, techniques, and tricks drawn from academia and online resources, as both a tool and a guide for creating games effectively and efficiently. Playnub is designed to expedite game development by providing tons of resources built specifically for rapid prototyping and continuous iteration-- enabling developers to focus on making the games they envision, not on programming the framework necessary to do so.
 
 ### Features
 
@@ -47,8 +47,6 @@ This project is currently in development and does not yet have a stable release.
   - Steering Behaviors
   - Terrain Analysis and Layers
   - Vision Cones
-- Math library
-  - Geometric mean
 
 ## Version
 Playnub requires **at least Godot 4.3**.
