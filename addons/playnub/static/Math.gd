@@ -54,7 +54,7 @@ static func geometric_mean(inputs: Array[float]) -> float:
 	var sum := 0.0
 	
 	for input: float in inputs:
-		sum += input
+		sum += log(input)
 	
 	return exp(sum / float(inputs.size()))
 
@@ -63,7 +63,7 @@ static func geometric_mean_packed_f32(inputs: PackedFloat32Array) -> float:
 	var sum := 0.0
 	
 	for input: float in inputs:
-		sum += input
+		sum += log(input)
 	
 	return exp(sum / float(inputs.size()))
 
@@ -72,6 +72,6 @@ static func geometric_mean_packed_f64(inputs: PackedFloat64Array) -> float:
 	var sum := 0.0
 	
 	for input: float in inputs:
-		sum += input
+		sum += log(input)
 	
 	return exp(sum / float(inputs.size()))
