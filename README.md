@@ -35,11 +35,12 @@ The Playnub plugin is a collection of many general-purpose game development patt
 - And more!
 
 ### Future Plans
-This project is currently in development and does not yet have a stable release. It will have one once it's in a good enough spot.
+This project is currently in development and does not yet have a stable release. It will have one once it's in a good enough spot.  
+The following is a list of things that I would like to implement into this project, time permitting:
 
 - Automation
   - Record user input to a file
-  - Play it back for debugging and/or testing, or for in-game replays
+  - Play it back for testing/debugging, or for in-game replays
 - Behaviors
   - Behavior Tree
   - Probability Curves
