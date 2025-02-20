@@ -35,7 +35,6 @@ The Playnub plugin is a collection of many general-purpose game development patt
 - And more!
 
 ### Future Plans
-This project is currently in development and does not yet have a stable release. It will have one once it's in a good enough spot.  
 The following is a list of things that I would like to implement into this project, time permitting:
 
 - Automation
@@ -51,6 +50,9 @@ The following is a list of things that I would like to implement into this proje
 
 ## Version
 Playnub requires **at least Godot 4.3**.
+
+## Installation
+This project is currently in development and does not yet have a stable release. It will have one when the features of the plugin are solid enough for a release and, ideally, have unit tests in the repository.
 
 ## License
 This project is licensed under the [MIT License](https://github.com/this-is-bennyk/playnub/blob/main/LICENSE).
