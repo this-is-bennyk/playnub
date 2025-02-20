@@ -13,6 +13,7 @@
 ## Table of Contents
 - [About](#version)
 - [Version](#version)
+- [Installation](#installation)
 - [License](#license)
 
 ## About
