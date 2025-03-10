@@ -51,6 +51,9 @@ var expression_string := "":
 @export_custom(PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY)
 var compilation := "":
 	get:
+		if not Engine.is_editor_hint():
+			return ""
+		
 		var expr = Expression.new()
 		var err := expr.parse(expression_string, T_VARIABLE)
 		
@@ -69,7 +72,8 @@ var compilation := "":
 
 ## An object whose functions / members can be used in the equation. For advanced
 ## usage that can't be described in the single line an [Expression] allows for.
-## See [Expression] or [url=https://docs.godotengine.org/en/stable/tutorials/scripting/evaluating_expressions.html]this tutorial[/url] (especially the comment by Agecaf).
+## See [Expression] or [url=https://docs.godotengine.org/en/stable/tutorials/scripting/evaluating_expressions.html]this tutorial[/url]
+## (especially the comment by Agecaf).
 var base_instance: Object = null:
 	set(value):
 		base_instance = value

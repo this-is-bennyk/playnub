@@ -23,9 +23,9 @@
 class_name ControlCurve
 extends Resource
 
-## Creates a curve for interpolating data.
+## Defines an equation for interpolating data.
 ##
-## Unlike traditional software, almost all, if not all, data and events in a game
+## Unlike traditional software, most, if not all, data and events in a game
 ## benefit from progressing or changing in an arc-like manner, with the design patterns
 ## setup-hook-development-turn-resolution arcs and attack-(delay-)sustain-release for short ones.
 ## The [ControlCurve] allows one to define these arcs for any kind of continuous data.[br]
@@ -107,15 +107,18 @@ var control_2: Box = null
 
 @export_subgroup("Spherical Interpolation")
 
-## If enabled and the interpolation is a 2D angle or a 3D quaternion, interpolate
-## to the nearest angle instead using the absolute numerical value.
+## If enabled and the interpolation is a 2D angle or a 3D quaternion, interpolates
+## to the nearest angle instead of using the absolute numerical value. Affects interpolation types
+## of [constant InterpolationType.LINEAR], [constant InterpolationType.CUBIC], and
+## [constant InterpolationType.CUBIC_IN_TIME].
 @export
 var spherical := false
 
-## If enabled and the interpolation is a 3D quaternion, interpolate
-## to the nearest angle instead using the absolute numerical value, but don't check
+## If enabled and the interpolation is a 3D quaternion, interpolates
+## to the nearest angle instead of using the absolute numerical value, but doesn't check
 ## if the rotation is greater than 90 degrees. See [method Quaternion.slerpni] for
-## more information.
+## more information. [member spherical] must be enabled for this to have an effect.
+## Only affects the interpolation type [constant InterpolationType.LINEAR].
 @export
 var use_slerpni_for_quats := false
 
@@ -141,13 +144,14 @@ var built_in_easing: Tween.EaseType = Tween.EASE_IN
 @export_subgroup("Arbitrary Curve")
 
 ## The curve to use, drawable in-editor by a designer. As of Godot 4.4, the [Curve]'s
-## domain (x-axis) can be extended beyond [code][0, 1][/code]. Please do not change
-## this, as only x-values between [code][0, 1][/code] will be evaluated.
+## domain (x-axis) can be extended beyond [code][0, 1][/code]. You may change the domain
+## for your curve, but it is recommended for simplicity's sake to stick with a [code][0, 1][/code] range.
 @export
 var arbitrary_curve: Curve = null
 
 ## Whether to evaluate the state of this curve every time it is sampled for an
 ## interpolation. Useful if the curve changes as the interpolation is occurring.
+## Leave [code]false[/code] for better performance.
 @export
 var dynamically_sample_curve := false
 
@@ -163,8 +167,15 @@ var equation: InterpolationEquation = null
 @export_exp_easing
 var ease_function_curve := 0.0
 
-## Returns the interpolated value at the given [param weight].
-## [param weight] must be in the range [code][0, 1][/code].
+## Returns the interpolated value at the given [param weight].[br]
+## [param weight] should be in the range [code][0, 1][/code], but you may design certain curves
+## to be a different range, particularly for [constant EasingType.BUILT_IN], [constant EasingType.CURVE],
+## and [constant EasingType.EQUATION].[br]
+## Note that [constant EasingType.BUILT_IN] does not allow for most negative bases with [constant Tween.TRANS_QUART],
+## [constant Tween.TRANS_QUINT], [constant Tween.TRANS_EXPO], [constant Tween.TRANS_SPRING], and [constant Tween.TRANS_QUAD]
+## (when using [constant Tween.EASE_OUT]) due to [method @GlobalScope.pow] returning NaN for negative roots
+## (consistent with the expected behavior for C++'s [code]pow[/code] function, as seen
+## [url=https://en.cppreference.com/w/c/numeric/math/pow]here[/url] in the Notes section).
 func at(weight: float) -> Variant:
 	var xformed_weight := _get_transformed_weight(weight)
 	
@@ -182,23 +193,22 @@ func at(weight: float) -> Variant:
 func clone(deep: bool = false) -> ControlCurve:
 	return duplicate(deep) as ControlCurve
 
+## Sets the beginning and end of the curve.
 func between(from: Box, to: Box) -> ControlCurve:
 	start = from
 	end = to
 	return self
 
+## Sets the end of the curve.
 func towards(to: Box) -> ControlCurve:
 	end = to
 	return self
 
+## Swaps the beginning and end of the curve.
 func reversed() -> ControlCurve:
 	var temp := start
 	start = end
 	end = temp
-	return self
-
-func uses_builtin_easing(easing: Tween.EaseType) -> ControlCurve:
-	built_in_easing = easing
 	return self
 
 func _lerp(a: Variant, b: Variant, weight: float) -> Variant:
@@ -296,4 +306,17 @@ func _get_transformed_weight(weight: float) -> float:
 			return ease(weight, ease_function_curve)
 		
 		_:
+			assert(not
+				(
+					  (built_in_transition == Tween.TRANS_QUAD and built_in_easing != Tween.EASE_OUT)
+					or built_in_transition == Tween.TRANS_QUART
+					or built_in_transition == Tween.TRANS_QUINT
+					or built_in_transition == Tween.TRANS_EXPO
+					or (built_in_transition == Tween.TRANS_SPRING)
+					and weight < 0.0
+				)
+				,
+				"Quadratic-in, quartic, quintic, exponential, and spring easing functions cannot have negative input values!"
+			)
+			
 			return Tween.interpolate_value(0.0, 1.0, weight, 1.0, built_in_transition, built_in_easing)

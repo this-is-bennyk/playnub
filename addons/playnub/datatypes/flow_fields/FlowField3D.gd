@@ -20,41 +20,5 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name UniversalWeightedTable
+class_name FlowField3D
 extends RefCounted
-
-## Container that selects elements, affected by given probabilities.
-## 
-## An easy way to assign rarity to certain data types, objects, functions, etc.
-## Also useful for manipulating simple behaviors.
-
-var _weights: Array[float] = []
-var _elements := []
-
-var _total_weight := 0.0
-
-## Adds an [param element] with [param weight] affecting its probability of occurring.
-## A larger [param weight] means a higher chance. Returns the index the element was
-## placed at.
-func add(element: Variant, weight: float) -> int:
-	var index := _elements.size()
-	
-	_weights.append(weight)
-	_elements.append(element)
-	
-	_total_weight += weight
-	
-	return index
-
-## Randomly chooses an element from the list and returns it.
-func choose() -> Variant:
-	var choice := randf_range(0.0, _total_weight)
-	var sum := 0.0
-	
-	for index: int in _weights.size():
-		sum += _weights[index]
-		
-		if sum > choice:
-			return _elements[index]
-	
-	return _elements.back()

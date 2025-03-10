@@ -21,12 +21,17 @@
 # SOFTWARE.
 
 @tool
-class_name DrivenHarmonicOscillator
+class_name PIDController
 extends Resource
 
 ## Derives continuous, dampened oscillating values for positional and rotational motion.
 ## 
-## TODO
+## Organic and mechanical movement with continous variables is tough, even with [ControlCurve]s.
+## This object provides a way to interpolate continuous data towards a target point (from 1D to 4D)
+## with parameters for oscillation and dampening that can make procedural movement far easier.
+## The PID controller comes from traditional engineering control theory and control systems, but instead
+## of taking error out of a system, this system adds it in deliberately for game feel (source: @notanimposter's
+## comment in the tutorial).
 ## 
 ## @tutorial(t3ssel8r: Giving Personality to Procedural Animations using Math): https://www.youtube.com/watch?v=KPoeNZZ6H4s
 
@@ -65,10 +70,13 @@ var initial_response := 0.0 # r
 @export
 var accurate_motion_tracking := true
 
-## Displays approximately what the oscillation curve looks like in real time.
+## Editor-only property that displays approximately what the oscillation curve looks like in real time.
 @export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY)
 var result_curve: Curve:
 	get:
+		if not Engine.is_editor_hint():
+			return null
+		
 		var curve := Curve.new()
 		
 		curve.clear_points()

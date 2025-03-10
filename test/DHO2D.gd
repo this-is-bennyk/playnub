@@ -1,7 +1,7 @@
 extends Node2D
 
 @export
-var oscillator: DrivenHarmonicOscillator = null
+var oscillator: PIDController = null
 
 @onready
 var icon := $Icon

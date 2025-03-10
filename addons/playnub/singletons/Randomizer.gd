@@ -30,38 +30,93 @@ extends Node
 ## interactions and/or events more believably random, even if that isn't technically
 ## or mathematically true.
 
+const RANDOMIZATION_DATA_TABLE := &"RandomizationData"
+
 var _rng := RandomNumberGenerator.new()
-var _deck_indices: Dictionary = {}
+var _deck_indices: Dictionary[Array, Array] = {}
 
 func _ready() -> void:
+	PlaynubTelemeter.watch_all(
+		[
+			  &"Seed"
+			, &"State"
+		]
+		,
+		[
+			  Box.new(_rng, "seed")
+			, Box.new(_rng, "state")
+		]
+		,
+		RANDOMIZATION_DATA_TABLE)
+	
 	self.randomize()
 
+## Sets up a time-based seed for the randomizer.
 func randomize() -> void:
 	_rng.randomize()
-	PlaynubTelemeter.watch(&"Seed", Box.new(_rng, "seed"), &"RandomizationData")
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
 
+## Sets a specific seed for the randomizer. Useful for games where saving the seed is
+## important for replicating runs or saved games.
+func set_seed(seed: Variant) -> void:
+	_rng.seed = hash(seed)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+
+## Returns a pseudo-random 32-bit unsigned integer between [code]0[/code] and
+## [code]4294967295[/code] (inclusive).
 func randi() -> int:
-	return _rng.randi()
+	var result := _rng.randi()
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return result
 
+## Returns a pseudo-random 32-bit signed integer between [param from] and [param to] (inclusive).
+func randi_range(from: int, to: int) -> int:
+	var result := _rng.randi_range(from, to)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return result
+
+## Returns a pseudo-random float between [code]0.0[code] and [/code]1.0[code] (inclusive).
 func randf() -> float:
-	return _rng.randf()
+	var result := _rng.randf()
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return result
+
+## Returns a pseudo-random float between [code]from[/code] and [code]to[/code] (inclusive).
+func randf_range(from: float, to: float) -> float:
+	var result := _rng.randf_range(from, to)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return result
+
+## Returns a normally-distributed, pseudo-random floating-point number from the specified mean and
+## a standard deviation. This is also known as a Gaussian distribution.[br]
+## [b]Note[/b]: This method uses the Box-Muller transform algorithm, trading speed for mathematical
+## accuracy. See [method RandomNumberGenerator.randfn] for more information.
+func randfn_accurate(mean := 0.0, deviation := 1.0) -> float:
+	var result := _rng.randfn(mean, deviation)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return result
 
 ## Returns a normally-distributed, pseudo-random floating-point number from the specified mean
-## and a standard deviation. This is also known as a Gaussian distribution. Unlike [method RandomNumberGenerator.randfn],
-## this method does not rely on the Box-Muller transform to create a normal distribution, but
-## instead relies on the Central Limit Theorem, trading mathematical accuracy for speed.
-func fast_gaussian(mean := 0.0, deviation := 1.0) -> float:
+## and a standard deviation. This is also known as a Gaussian distribution.
+## [b]Note[/b]: This method uses the Central Limit Theorem, trading mathematical accuracy for speed.
+func randfn_fast(mean := 0.0, deviation := 1.0) -> float:
 	# Three psuedo-random numbers is enough for the CLT
-	return (mean - deviation * 3.0) + (deviation * 6.0) * (_rng.randf() + _rng.randf() + _rng.randf()) / 3.0
+	return (mean - deviation * 3.0) + (deviation * 6.0) * (self.randf() + self.randf() + self.randf()) / 3.0
 
 ## Returns a random value from the target [param array] via a uniform distribution.
 func pick_random(array: Array) -> Variant:
-	return array[_rng.randi_range(0, array.size() - 1)]
+	return array[self.randi_range(0, array.size() - 1)]
 
-## Returns a random value from the target [param array], like [method Array.pick_random].
-## However, unlike [method Array.pick_random], this function guarantees that no element
-## is picked multiple times in a row. Useful for more believable random events (ex.
-## drawing cards from a deck).
+## Returns a random value from the target [array] based on weighted probabilities provided by [param weights].
+func pick_weighted(array: Array, weights: PackedFloat32Array) -> Variant:
+	assert(array.size() == weights.size(), "Mismatched array and weight sizes!")
+	var selection := _rng.rand_weighted(weights)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return array[selection]
+
+## Returns a random value from the target [param array]. However, unlike [method pick_random] or
+## [method pick_weighted], this function guarantees that no element is picked multiple times in a row.
+## Useful for more believable random events (ex. drawing cards from a deck).
 func deck_random(array: Array) -> Variant:
 	if not array in _deck_indices:
 		var empty: Array[int] = []
@@ -90,7 +145,7 @@ func _perform_fisher_yates(indices: Array[int]) -> void:
 	var from_index := size - 1
 	
 	while from_index >= 1:
-		var to_index := _rng.randi() % (from_index + 1)
+		var to_index := self.randi() % (from_index + 1)
 		var temp := indices[to_index]
 		
 		indices[to_index] = indices[from_index]
