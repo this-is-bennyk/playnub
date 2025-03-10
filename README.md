@@ -28,12 +28,16 @@ The Playnub plugin is a collection of many general-purpose game development patt
   - Create multiple tables of data
   - CSV, SQL file, and SQLite database support
 - Behaviors
-  - Action Lists: create discrete sequences of events in code
+  - Action Lists: for creating discrete sequences of events in code
+- Interpolation Systems
+  - Control Curves and Envelopes: For control precisely how a data point gets from A to B
+  - PID Controller: For controlling how a point follows a target using a control system
 - Randomization
   - Fast normal distribution randomness
   - Complete and deck randomness
-  - Generic weighted table
-- And more!
+  - Weighted randomness
+  - Seed setting
+  - Seed state recording
 
 ### Future Plans
 The following is a list of things that I would like to implement into this project, time permitting:
@@ -48,9 +52,11 @@ The following is a list of things that I would like to implement into this proje
   - Steering Behaviors
   - Terrain Analysis and Layers
   - Vision Cones
+- Physics
+  - Jerk Integrator: For creating smooth character and NPC controllers by going a step beyond acceleration
 
 ## Version
-Playnub requires **at least Godot 4.3**.
+Playnub requires **at least Godot 4.4**.
 
 ## Installation
 This project is currently in development and does not yet have a stable release. It will have one when the features of the plugin are solid enough for a release and, ideally, have unit tests in the repository.
