@@ -11,7 +11,7 @@
 </p>
 
 ## Table of Contents
-- [About](#version)
+- [About](#about)
 - [Version](#version)
 - [Installation](#installation)
 - [License](#license)
