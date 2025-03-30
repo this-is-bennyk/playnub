@@ -9,3 +9,6 @@ export_presets.cfg
 # Godot ignores that should be standard:
 # Auto-generated temporary DLL files (used for hot-reloading I think?)
 **/~*.dll
+
+# Project-specific ignores:
+/test/
