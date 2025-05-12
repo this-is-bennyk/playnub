@@ -21,72 +21,41 @@
 # SOFTWARE.
 
 @tool
-class_name Vector2BoxFiller
+class_name IntBoxFiller
 extends BoxFiller
 
-@export_custom(PROPERTY_HINT_LINK, "")
-var value := Vector2():
+@export
+var value := 0:
 	set(new_value):
-		value = new_value
-		
-		if limits_x_enabled:
-			value.x = clampf(value.x, limits_x_minimum, limits_x_maximum)
-		
-		if limits_y_enabled:
-			value.y = clampf(value.y, limits_y_minimum, limits_y_maximum)
+		if limits_enabled:
+			value = clampi(new_value, limits_minimum, limits_maximum)
+		else:
+			value = new_value
 
 @export_group("Limits", "limits_")
 
-@export_subgroup("X", "limits_x_")
-
 @export
-var limits_x_enabled := false:
+var limits_enabled := false:
 	set(new_value):
-		limits_x_enabled = new_value
+		limits_enabled = new_value
 		
-		if limits_x_enabled:
+		if limits_enabled:
 			value = value
 
 @export
-var limits_x_minimum := 0.0:
+var limits_minimum := 0:
 	set(new_value):
-		limits_x_minimum = minf(new_value, limits_x_maximum)
+		limits_minimum = mini(new_value, limits_maximum)
 		
-		if limits_x_enabled:
+		if limits_enabled:
 			value = value
 
 @export
-var limits_x_maximum := 0.0:
+var limits_maximum := 0:
 	set(new_value):
-		limits_x_maximum = maxf(new_value, limits_x_minimum)
+		limits_maximum = maxi(new_value, limits_minimum)
 		
-		if limits_x_enabled:
-			value = value
-
-@export_subgroup("Y", "limits_y_")
-
-@export
-var limits_y_enabled := false:
-	set(new_value):
-		limits_y_enabled = new_value
-		
-		if limits_y_enabled:
-			value = value
-
-@export
-var limits_y_minimum := 0.0:
-	set(new_value):
-		limits_y_minimum = minf(new_value, limits_y_maximum)
-		
-		if limits_y_enabled:
-			value = value
-
-@export
-var limits_y_maximum := 0.0:
-	set(new_value):
-		limits_y_maximum = maxf(new_value, limits_y_minimum)
-		
-		if limits_y_enabled:
+		if limits_enabled:
 			value = value
 
 func setup() -> void:

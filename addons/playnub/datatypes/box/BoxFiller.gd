@@ -30,7 +30,9 @@ extends Resource
 ## Inherit from this class to create designer-controlled values for [Resource]s
 ## that use [Box]es.
 
+## The data to set in the [Box].
 var data = null
+## The key to part of the [member data].
 var key = null
 
 func _init() -> void:

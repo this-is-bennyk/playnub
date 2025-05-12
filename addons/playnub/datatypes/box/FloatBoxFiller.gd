@@ -20,11 +20,43 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@tool
 class_name FloatBoxFiller
 extends BoxFiller
 
 @export
-var value := 0.0
+var value := 0.0:
+	set(new_value):
+		if limits_enabled:
+			value = clampf(new_value, limits_minimum, limits_maximum)
+		else:
+			value = new_value
+
+@export_group("Limits", "limits_")
+
+@export
+var limits_enabled := false:
+	set(new_value):
+		limits_enabled = new_value
+		
+		if limits_enabled:
+			value = value
+
+@export
+var limits_minimum := 0.0:
+	set(new_value):
+		limits_minimum = minf(new_value, limits_maximum)
+		
+		if limits_enabled:
+			value = value
+
+@export
+var limits_maximum := 0.0:
+	set(new_value):
+		limits_maximum = maxf(new_value, limits_minimum)
+		
+		if limits_enabled:
+			value = value
 
 func setup() -> void:
 	data = value
