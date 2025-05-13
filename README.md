@@ -3,11 +3,11 @@
 <h1 align="center">Playnub</h1>
 
 <p align="center">
-  A kit of game development tools for Godot 4.x!
+  A kit of game development tools for Godot 4.4+!
 </p>
 
 <p align="center">
-  <a href="https://godotengine.org/download/" target="_blank" style="text-decoration:none"><img alt="Godot 4.3+" src="https://img.shields.io/badge/Godot-4.3+-%23478cbf?labelColor=CFC9C8&color=49A9B4" /></a>
+  <a href="https://godotengine.org/download/" target="_blank" style="text-decoration:none"><img alt="Godot 4.4+" src="https://img.shields.io/badge/Godot-4.4+-%23478cbf?labelColor=CFC9C8&color=49A9B4" /></a>
 </p>
 
 ## Table of Contents
