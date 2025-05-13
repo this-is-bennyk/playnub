@@ -163,7 +163,7 @@ func has_submodule_type(script: Script) -> bool:
 ## Returns whether this module has a parent module. May be useful to check this
 ## before accessing the [member parent].
 func has_parent_module() -> bool:
-	return get_parent() is Module
+	return (not get_parent()) or get_parent() is Module
 
 ## Virtual function that determines if the module should enforce uniqueness
 ## programmatically as opposed to using the designer variable [member uniqueness_enabled].
@@ -193,7 +193,7 @@ func _create_module_list(script: Script) -> void:
 	set_meta(script.get_global_name(), empty)
 
 func _register() -> void:
-	if not parent:
+	if not has_parent_module():
 		return
 	
 	var submodules := parent.get_all_submodules(attached_script)
@@ -218,7 +218,7 @@ func _register() -> void:
 		submodules.append(self)
 
 func _unregister() -> void:
-	if not parent:
+	if not has_parent_module():
 		return
 	
 	var submodules := parent.get_all_submodules(attached_script)
