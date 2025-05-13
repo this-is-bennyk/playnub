@@ -160,6 +160,11 @@ func get_submodule(script: Script, index := 0) -> Module:
 func has_submodule_type(script: Script) -> bool:
 	return has_meta(script.get_global_name()) and not (get_meta(script.get_global_name()) as Array[Module]).is_empty()
 
+## Returns whether this module has a parent module. May be useful to check this
+## before accessing the [member parent].
+func has_parent_module() -> bool:
+	return get_parent() is Module
+
 ## Virtual function that determines if the module should enforce uniqueness
 ## programmatically as opposed to using the designer variable [member uniqueness_enabled].
 ## Override to return [code]true[/code] if you wish to enable this.
