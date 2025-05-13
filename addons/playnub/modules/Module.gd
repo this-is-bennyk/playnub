@@ -160,6 +160,17 @@ func get_submodule(script: Script, index := 0) -> Module:
 func has_submodule_type(script: Script) -> bool:
 	return has_meta(script.get_global_name()) and not (get_meta(script.get_global_name()) as Array[Module]).is_empty()
 
+## Virtual function that determines if the module should enforce uniqueness
+## programmatically as opposed to using the designer variable [member uniqueness_enabled].
+## Override to return [code]true[/code] if you wish to enable this.
+func is_strongly_unique() -> bool:
+	return false
+
+## Returns how existing modules of the same type should be replaced, if there are any,
+## assuming [method has_strong_uniqueness] returns [code]true[/code].
+func get_strong_uniqueness_mode() -> UniquenessMode:
+	return UniquenessMode.REPLACE_ONLY
+
 func _add_type_groups() -> void:
 	if not script_type.is_empty():
 		add_to_group(script_type)
@@ -182,14 +193,19 @@ func _register() -> void:
 	
 	var submodules := parent.get_all_submodules(attached_script)
 	
-	if uniqueness_enabled:
+	if _is_unique():
 		if submodules.is_empty():
 			submodules.append(self)
 		else:
-			match uniqueness_mode:
+			match _get_uniqueness_mode():
 				UniquenessMode.DELETE_AND_REPLACE:
 					for submodule: Module in submodules:
 						submodule.queue_free()
+				
+				# TODO: If/when stashing is implemented
+				#UniquenessMode.STASH_AND_REPLACE:
+					#for submodule: Module in submodules:
+						#submodule.stash()
 			
 			submodules.clear()
 			submodules.append(self)
@@ -202,7 +218,17 @@ func _unregister() -> void:
 	
 	var submodules := parent.get_all_submodules(attached_script)
 	
-	if uniqueness_enabled:
+	if _is_unique():
 		submodules.clear()
 	else:
 		submodules.erase(self)
+
+func _is_unique() -> bool:
+	return uniqueness_enabled or is_strongly_unique()
+
+func _get_uniqueness_mode() -> UniquenessMode:
+	if is_strongly_unique():
+		return get_strong_uniqueness_mode()
+	elif uniqueness_enabled:
+		return uniqueness_mode
+	return UniquenessMode.REPLACE_ONLY

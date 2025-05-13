@@ -67,7 +67,7 @@ var enabled: bool:
 
 var _telemetry_dir_str := ""
 var _telemetry_session_str := ""
-var _tables: Dictionary = {}
+var _tables: Dictionary[StringName, DataTable] = {}
 var _file_type := FileType.CSV
 
 var _sqlite_db: SQLite = null
@@ -119,7 +119,7 @@ func watch_all(labels: Array[StringName], values: Array[Box], table: StringName)
 	if not _tables.has(table):
 		_create_table(table)
 	
-	(_tables[table] as DataTable).record(labels, values)
+	_tables[table].record(labels, values)
 
 ## Captures all the values of the given [param table] with the tickstamp and timestamp it was called at.
 ## Connect signals to this function with a binded [StringName] to automatically record values when
@@ -130,7 +130,7 @@ func update(table: StringName) -> void:
 	
 	assert(_tables.has(table), "Table doesn't exist!")
 	
-	(_tables[table] as DataTable).update()
+	_tables[table].update()
 
 func _create_table(table: StringName) -> void:
 	if not enabled:
