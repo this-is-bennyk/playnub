@@ -24,6 +24,9 @@
 class_name FloatBoxFiller
 extends BoxFiller
 
+## Fills the associated [Box] with a [float].
+
+## The floating-point number to fill into the box.
 @export
 var value := 0.0:
 	set(new_value):
@@ -34,6 +37,7 @@ var value := 0.0:
 
 @export_group("Limits", "limits_")
 
+## Whether to have designer-controlled limits on the [member value].
 @export
 var limits_enabled := false:
 	set(new_value):
@@ -42,6 +46,7 @@ var limits_enabled := false:
 		if limits_enabled:
 			value = value
 
+## The number the [member value] can't be lower than.
 @export
 var limits_minimum := 0.0:
 	set(new_value):
@@ -50,6 +55,7 @@ var limits_minimum := 0.0:
 		if limits_enabled:
 			value = value
 
+## The number the [member value] can't be higher than.
 @export
 var limits_maximum := 0.0:
 	set(new_value):
@@ -58,5 +64,6 @@ var limits_maximum := 0.0:
 		if limits_enabled:
 			value = value
 
+## See [method Box.setup].
 func setup() -> void:
 	data = value

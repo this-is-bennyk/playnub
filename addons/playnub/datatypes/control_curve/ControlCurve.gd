@@ -167,15 +167,15 @@ var equation: InterpolationEquation = null
 @export_exp_easing
 var ease_function_curve := 0.0
 
-## Returns the interpolated value at the given [param weight].[br]
-## [param weight] should be in the range [code][0, 1][/code], but you may design certain curves
-## to be a different range, particularly for [constant EasingType.BUILT_IN], [constant EasingType.CURVE],
-## and [constant EasingType.EQUATION].[br]
-## Note that [constant EasingType.BUILT_IN] does not allow for most negative bases with [constant Tween.TRANS_QUART],
-## [constant Tween.TRANS_QUINT], [constant Tween.TRANS_EXPO], [constant Tween.TRANS_SPRING], and [constant Tween.TRANS_QUAD]
-## (when using [constant Tween.EASE_OUT]) due to [method @GlobalScope.pow] returning NaN for negative roots
-## (consistent with the expected behavior for C++'s [code]pow[/code] function, as seen
-## [url=https://en.cppreference.com/w/c/numeric/math/pow]here[/url] in the Notes section).
+## Returns the interpolated value at the given [param weight]. [param weight] should be in the range
+## [code][0, 1][/code], but you may design certain curves for a range beyond [code][0, 1][/code], particularly for
+## [constant EasingType.BUILT_IN], [constant EasingType.CURVE], and [constant EasingType.EQUATION].[br][br]
+## [b]NOTE[/b]: [constant EasingType.BUILT_IN] does not allow for most negative bases, i.e. [param weight]s,
+## with [constant Tween.TRANS_QUART], [constant Tween.TRANS_QUINT], [constant Tween.TRANS_EXPO],
+## [constant Tween.TRANS_SPRING], and [constant Tween.TRANS_QUAD] (when using [constant Tween.EASE_OUT])
+## due to [method @GlobalScope.pow] returning NaN for negative roots (consistent with the expected
+## behavior for C++'s [code]pow[/code] function, as seen [url=https://en.cppreference.com/w/c/numeric/math/pow]here[/url]
+## in the Notes section). An error is thrown in editor builds when this occurs.
 func at(weight: float) -> Variant:
 	var xformed_weight := _get_transformed_weight(weight)
 	
@@ -189,7 +189,7 @@ func at(weight: float) -> Variant:
 	return _lerp(start.data, end.data, xformed_weight)
 
 ## Creates and returns a copy of this curve. [param deep] determines whether to
-## fully copy the nested resources of this curve.
+## make unique copies of the nested resources of this curve.
 func clone(deep: bool = false) -> ControlCurve:
 	return duplicate(deep) as ControlCurve
 

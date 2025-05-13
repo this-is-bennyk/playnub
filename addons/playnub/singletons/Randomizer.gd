@@ -89,7 +89,7 @@ func randf_range(from: float, to: float) -> float:
 
 ## Returns a normally-distributed, pseudo-random floating-point number from the specified mean and
 ## a standard deviation. This is also known as a Gaussian distribution.[br]
-## [b]Note[/b]: This method uses the Box-Muller transform algorithm, trading speed for mathematical
+## [b]NOTE[/b]: This method uses the Box-Muller transform algorithm, trading speed for mathematical
 ## accuracy. See [method RandomNumberGenerator.randfn] for more information.
 func randfn_accurate(mean := 0.0, deviation := 1.0) -> float:
 	var result := _rng.randfn(mean, deviation)
@@ -98,7 +98,7 @@ func randfn_accurate(mean := 0.0, deviation := 1.0) -> float:
 
 ## Returns a normally-distributed, pseudo-random floating-point number from the specified mean
 ## and a standard deviation. This is also known as a Gaussian distribution.
-## [b]Note[/b]: This method uses the Central Limit Theorem, trading mathematical accuracy for speed.
+## [b]NOTE[/b]: This method uses the Central Limit Theorem, trading mathematical accuracy for speed.
 func randfn_fast(mean := 0.0, deviation := 1.0) -> float:
 	# Three psuedo-random numbers is enough for the CLT
 	return (mean - deviation * 3.0) + (deviation * 6.0) * (self.randf() + self.randf() + self.randf()) / 3.0

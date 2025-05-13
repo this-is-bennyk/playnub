@@ -32,6 +32,14 @@ extends Resource
 ## lets one do this, and adds additional functionality to access specific parts of
 ## complex objects.
 
+## A resource that automatically writes its contents to the box's [member data].
+## Useful for designer variables in the editor, but not so much in code.
+## For procedural or dynamic data, it is recommended to instantiate a new box
+## or use the [method rewrite] method; for example:
+## [codeblock]
+## var box_for_dynamic_obj := Box.new(my_object, "property:subproperty")
+## box_for_dynamic_obj.rewrite(other_data)
+## [/codeblock]
 @export
 var filler: BoxFiller = null:
 	set(value):
@@ -41,6 +49,7 @@ var filler: BoxFiller = null:
 			filler.setup()
 			rewrite(filler.data, filler.key)
 
+## The interface to the information or object stored.
 var data:
 	get:
 		if _key != null:
@@ -52,7 +61,7 @@ var data:
 				else:
 					return null
 			elif _is_callable:
-				return (_actual_data as Callable).call(false)
+				return (_actual_data as Callable).call()
 			else:
 				assert(false, "Data cannot be indexed!")
 		
@@ -65,10 +74,11 @@ var data:
 			elif _is_obj:
 				if is_instance_valid(_actual_data):
 					(_actual_data as Object).set_indexed(_key, value)
-			# If the data is a callable and you're allowed to set the data...
-			elif _is_callable and _key:
-				# Set it via the callable
-				(_actual_data as Callable).call(true, value)
+			elif _is_callable:
+				if (_key as Callable).is_null():
+					assert(false, "Data cannot be set!")
+				else:
+					(_key as Callable).call(value)
 			else:
 				assert(false, "Data cannot be indexed!")
 		else:
@@ -87,31 +97,37 @@ func _init(_data_ = null, _key_ = null) -> void:
 	else:
 		rewrite(_data_, _key_)
 
-## Writes [param new_data] into the box. If the [param new_key] is not [code]null[/code], it will access a certain
-## part of the object, depending on its type:[br]
-## · If the [param new_data] is a [Dictionary], the [param new_key] may be anything.[br]
+## Writes [param new_data] into the box. If the [param new_key] is [code]null[/code], the box will access
+## the data as it is.[br][br]
+## If the [param new_key] is not [code]null[/code], the box will instead access a certain
+## part of the object, depending on its type:[br][br]
+## · If the [param new_data] is a [Dictionary], the [param new_key] must be a non-[code]null[/code] value.[br]
 ## · If the [param new_data] is an array type (ex. [Array], [PackedInt64Array], etc.), the [param new_key] must be an [int].[br]
 ## · If the [param new_data] is a [PackedDataContainer], the [param new_key] must be an [int], a [String], or a [StringName].[br]
 ## · If the [param new_data] is an [Object], the [param new_key] must be an [NodePath] (akin to [method Tween.tween_property]).[br]
-## · If the [param new_data] is a [Callable], the [param new_key] must be [code]true[/code] or [code]false[/code] to specify
-## whether to allow writing / setting the data manipulated by the [Callable], and the signature of the [Callable] must match one of the following
-## (or binded such that the remaining parameters match the following):[br]
-## As a method:
+## · If the [param new_data] is a [Callable], the [param new_key] must be a [Callable]. The signatures of the [Callable]s must match
+## one of the following function styles (or binded using [method Callable.bind] or [method Callable.bindv] such that the remaining
+## parameters match the following):[br][br]
+## [i]As methods:[/i]
 ## [codeblock]
-## func box_setget(setting: bool, value = null) -> Variant:
-##     # Recommended layout.
-##     if setting:
-##         pass # Use the value as you'd like.
+## func box_get() -> Variant: # A set type can be returned.
 ##     return null # Return something here.
 ## [/codeblock]
-## As a lambda:
 ## [codeblock]
-## func(setting: bool, value = null) -> Variant:
-##     # Recommended layout.
-##     if setting:
-##         pass # Use the value as you'd like.
+## func box_set(value: Variant) -> void: # The parameter can have a set type.
+##     pass # Use the value as you'd like.
+## [/codeblock]
+## [i]As lambdas:[/i]
+## [codeblock]
+## func() -> Variant: # A set type can be returned.
 ##     return null # Return something here.
 ## [/codeblock]
+## [codeblock]
+## func(value: Variant) -> void: # The parameter can have a set type.
+##     pass # Use the value as you'd like.
+## [/codeblock]
+## To emulate a constant variable, pass the empty callable [code]Callable()[/code] as the [param new_key].
+## An error will be thrown in editor builds if the user attempts to set the value the box is referencing.
 func rewrite(new_data, new_key = null) -> void:
 	_actual_data = new_data
 	_key = new_key
@@ -136,6 +152,10 @@ func rewrite(new_data, new_key = null) -> void:
 	_is_obj = is_object
 	_is_callable = is_callable
 	
+	if _is_callable:
+		assert((_actual_data as Callable).is_valid(), "Boxed Callable is not valid!")
+		assert((_actual_data as Callable).get_argument_count() == 0, "Boxed Callable is not (acting as) a getter function!")
+	
 	if _key != null:
 		if is_array:
 			assert(_key is int, "Key for array type is not int!")
@@ -147,14 +167,15 @@ func rewrite(new_data, new_key = null) -> void:
 			assert(_key is int or _key is String or _key is StringName, "Key for PackedDataContainer type is not int/String/StringName!")
 		
 		elif is_object:
-			assert(_key is NodePath or _key is String, "Key for object type is not NodePath!")
+			assert(_key is NodePath or _key is String, "Key for Object type is not NodePath!")
 			
 			if _key is String:
 				_key = NodePath(_key as String)
 		
 		# The bool key determines if you can set the value the callable manipulates
 		elif is_callable:
-			assert(_key is bool, "Key for callable type is not bool!")
+			assert(_key is Callable, "Key for Callable type is not Callable!")
+			assert((_key as Callable).is_null() or ((_key as Callable).is_valid() and (_key as Callable).get_argument_count() == 1), "Key for Callable type is neither an empty Callable nor (acting as) a setter function!")
 		
 		else:
 			assert(false, "Data cannot be indexed!")

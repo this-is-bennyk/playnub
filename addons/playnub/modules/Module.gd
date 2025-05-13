@@ -112,7 +112,7 @@ func _notification(what: int) -> void:
 ## var weapons := get_all_submodules(Weapon)
 ## # ...
 ## [/codeblock]
-## [b]Note[/b]: Submodules are not guaranteed to be ordered in a particular way.
+## [b]NOTE[/b]: Submodules are not guaranteed to be ordered in a particular way.
 ## The order of them may change as new ones are added / deleted.
 func get_all_submodules(script: Script) -> Array[Module]:
 	if not has_meta(script.get_global_name()):
@@ -145,7 +145,7 @@ func get_all_submodules(script: Script) -> Array[Module]:
 ## 
 ## # ...
 ## [/codeblock]
-## [b]Note[/b]: Submodules are not guaranteed to be ordered in a particular way.
+## [b]NOTE[/b]: Submodules are not guaranteed to be ordered in a particular way.
 ## The order of them may change as new ones are added / deleted.
 func get_submodule(script: Script, index := 0) -> Module:
 	if not has_meta(script.get_global_name()):

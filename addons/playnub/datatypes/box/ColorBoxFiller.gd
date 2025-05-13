@@ -539,6 +539,10 @@ var copy_value_to_source := func() -> void: source_color = value
 @export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR)
 var target_color := Color.WHITE
 
+## Copies the [member value] to the [member target_color].
+@export_tool_button("Copy Value to Target", "ActionCopy")
+var copy_value_to_target := func() -> void: target_color = value
+
 ## Overlays the [member target_color] on top of the [member value].
 @export_tool_button("Blend", "Gradient")
 var blend := func() -> void: value = source_color.blend(target_color)
@@ -551,5 +555,6 @@ var interpolation_weight := 0.0
 @export_tool_button("Lerp", "Curve")
 var lerp := func() -> void: value = source_color.lerp(target_color, interpolation_weight)
 
+## See [method Box.setup].
 func setup() -> void:
 	data = value

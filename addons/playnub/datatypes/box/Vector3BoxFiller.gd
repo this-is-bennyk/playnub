@@ -24,6 +24,9 @@
 class_name Vector3BoxFiller
 extends BoxFiller
 
+## Fills the associated [Box] with a [Vector3].
+
+## The 3D vector to fill into the box.
 @export_custom(PROPERTY_HINT_LINK, "")
 var value := Vector3():
 	set(new_value):
@@ -42,6 +45,7 @@ var value := Vector3():
 
 @export_subgroup("X", "limits_x_")
 
+## Whether to have designer-controlled limits on the x-axis of the [member value].
 @export
 var limits_x_enabled := false:
 	set(new_value):
@@ -50,6 +54,7 @@ var limits_x_enabled := false:
 		if limits_x_enabled:
 			value = value
 
+## The number the x-axis of the [member value] can't be lower than.
 @export
 var limits_x_minimum := 0.0:
 	set(new_value):
@@ -58,6 +63,7 @@ var limits_x_minimum := 0.0:
 		if limits_x_enabled:
 			value = value
 
+## The number the x-axis of the [member value] can't be higher than.
 @export
 var limits_x_maximum := 0.0:
 	set(new_value):
@@ -68,6 +74,7 @@ var limits_x_maximum := 0.0:
 
 @export_subgroup("Y", "limits_y_")
 
+## Whether to have designer-controlled limits on the y-axis of the [member value].
 @export
 var limits_y_enabled := false:
 	set(new_value):
@@ -76,6 +83,7 @@ var limits_y_enabled := false:
 		if limits_y_enabled:
 			value = value
 
+## The number the y-axis of the [member value] can't be lower than.
 @export
 var limits_y_minimum := 0.0:
 	set(new_value):
@@ -84,6 +92,7 @@ var limits_y_minimum := 0.0:
 		if limits_y_enabled:
 			value = value
 
+## The number the y-axis of the [member value] can't be higher than.
 @export
 var limits_y_maximum := 0.0:
 	set(new_value):
@@ -94,6 +103,7 @@ var limits_y_maximum := 0.0:
 
 @export_subgroup("Z", "limits_z_")
 
+## Whether to have designer-controlled limits on the z-axis of the [member value].
 @export
 var limits_z_enabled := false:
 	set(new_value):
@@ -102,6 +112,7 @@ var limits_z_enabled := false:
 		if limits_z_enabled:
 			value = value
 
+## The number the z-axis of the [member value] can't be lower than.
 @export
 var limits_z_minimum := 0.0:
 	set(new_value):
@@ -110,6 +121,7 @@ var limits_z_minimum := 0.0:
 		if limits_z_enabled:
 			value = value
 
+## The number the z-axis of the [member value] can't be higher than.
 @export
 var limits_z_maximum := 0.0:
 	set(new_value):
@@ -118,5 +130,6 @@ var limits_z_maximum := 0.0:
 		if limits_z_enabled:
 			value = value
 
+## See [method Box.setup].
 func setup() -> void:
 	data = value
