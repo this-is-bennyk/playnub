@@ -59,7 +59,8 @@ The following is a list of things that I would like to implement into this proje
 Playnub requires **at least Godot 4.4**.
 
 ## Installation
-This project is currently in development and does not yet have a stable release. It will have one when the features of the plugin are solid enough for a release and, ideally, have unit tests in the repository.
+Recommended way: Download it from the [asset library](https://godotengine.org/asset-library/asset/4015) inside Godot for the most recent stable build.
+Developer way: download directly from Github and copy the "addons/playnub" folder into your Godot project. The master branch may have breaking changes.
 
 ## License
 This project is licensed under the [MIT License](https://github.com/this-is-bennyk/playnub/blob/main/LICENSE).
