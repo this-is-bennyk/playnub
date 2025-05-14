@@ -75,17 +75,22 @@ func randi_range(from: int, to: int) -> int:
 	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
 	return result
 
-## Returns a pseudo-random float between [code]0.0[code] and [/code]1.0[code] (inclusive).
+## Returns a pseudo-random float between [code]0.0[/code] and [code]1.0[/code] (inclusive).
 func randf() -> float:
 	var result := _rng.randf()
 	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
 	return result
 
-## Returns a pseudo-random float between [code]from[/code] and [code]to[/code] (inclusive).
+## Returns a pseudo-random float between [param from] and [param true] (inclusive).
 func randf_range(from: float, to: float) -> float:
 	var result := _rng.randf_range(from, to)
 	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
 	return result
+
+## Returns a random boolean statement with equal probability to return
+## [code]true[/code] or [code]false[/code].
+func randb() -> bool:
+	return bool(self.randi() % 2)
 
 ## Returns a normally-distributed, pseudo-random floating-point number from the specified mean and
 ## a standard deviation. This is also known as a Gaussian distribution.[br]
@@ -107,7 +112,7 @@ func randfn_fast(mean := 0.0, deviation := 1.0) -> float:
 func pick_random(array: Array) -> Variant:
 	return array[self.randi_range(0, array.size() - 1)]
 
-## Returns a random value from the target [array] based on weighted probabilities provided by [param weights].
+## Returns a random value from the target [param array] based on weighted probabilities provided by [param weights].
 func pick_weighted(array: Array, weights: PackedFloat32Array) -> Variant:
 	assert(array.size() == weights.size(), "Mismatched array and weight sizes!")
 	var selection := _rng.rand_weighted(weights)

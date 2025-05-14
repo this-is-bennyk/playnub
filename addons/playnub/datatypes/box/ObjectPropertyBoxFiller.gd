@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://cuuhs1plgurxo")
 class_name ObjectPropertyBoxFiller
 extends BoxFiller
 

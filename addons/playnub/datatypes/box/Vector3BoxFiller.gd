@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://cl2fok6ir63m4")
 class_name Vector3BoxFiller
 extends BoxFiller
 

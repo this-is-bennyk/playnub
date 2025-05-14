@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://drpjslrmlstdq")
 class_name ColorBoxFiller
 extends BoxFiller
 

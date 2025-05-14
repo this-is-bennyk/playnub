@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g>
+        <path id="BoxFiller" d="M4.5,13.367L1.553,11.893C1.214,11.724 1,11.376 1,10.998L1,4.998C1,4.62 1.215,4.273 1.553,4.104L7.553,1.104C7.834,0.963 8.166,0.963 8.447,1.104L14.447,4.104C14.785,4.273 15,4.62 15,4.998L15,8.207C14.554,7.467 13.842,6.901 13,6.647L13,6.619L12.964,6.637C12.658,6.548 12.334,6.5 12,6.5L10.5,6.5L10.5,7.5L4.762,7.5L3,6.619L3,10.383L4.5,11.133L4.5,13.367ZM9.5,14.367L8.447,14.893C8.166,15.034 7.834,15.034 7.553,14.893L6.767,14.5L7,14.5C7.975,14.5 8.863,14.092 9.5,13.44L9.5,14.367ZM8,3.119L6.619,3.809L10.383,5.692L11.764,5L8,3.119Z" style="fill:rgb(224,224,224);"/>
+        <g transform="matrix(1,0,0,1,2,5)">
+            <path d="M9,2L9,4L10,4C10.549,4 11,4.451 11,5C11,5.549 10.549,6 10,6C8.903,6 8,6.903 8,8L8,10L13,10L13,8L10,8C11.646,8 13,6.646 13,5C13,3.354 11.646,2 10,2L9,2ZM3,3L3,9L5,9C6.646,9 8,7.646 8,6L8,3L6,3L6,6C6,6.549 5.549,7 5,7L5,3L3,3Z" style="fill:rgb(172,115,241);fill-rule:nonzero;"/>
+            <path d="M9,2L9,4L10,4C10.549,4 11,4.451 11,5C11,5.549 10.549,6 10,6C8.903,6 8,6.903 8,8L8,10L13,10L13,8L10,8C11.646,8 13,6.646 13,5C13,3.354 11.646,2 10,2L9,2Z" style="fill:white;fill-opacity:0.4;fill-rule:nonzero;"/>
+        </g>
+    </g>
+</svg>

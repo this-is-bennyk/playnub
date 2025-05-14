@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://xd23mhkvyjsx")
 class_name IntBoxFiller
 extends BoxFiller
 

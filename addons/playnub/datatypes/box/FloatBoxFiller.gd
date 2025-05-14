@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://0ajkepjv2r1h")
 class_name FloatBoxFiller
 extends BoxFiller
 
