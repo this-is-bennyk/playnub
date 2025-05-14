@@ -30,7 +30,7 @@ The Playnub plugin is a collection of many general-purpose game development patt
 - Behaviors
   - Action Lists: for creating discrete sequences of events in code
 - Interpolation Systems
-  - Control Curves and Envelopes: For control precisely how a data point gets from A to B
+  - Control Curves and Envelopes: For controlling precisely how a data point gets from A to B
   - PID Controller: For controlling how a point follows a target using a control system
 - Randomization
   - Fast normal distribution randomness
