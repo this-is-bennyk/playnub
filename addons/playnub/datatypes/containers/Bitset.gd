@@ -23,9 +23,7 @@
 class_name Bitset
 extends RefCounted
 
-## A set of an arbitrary number of bits.
-##
-## TODO
+## A vector of an arbitrary number of bits.
 
 ## The number of bits in a byte.
 const NUM_BITS := 8
@@ -47,49 +45,34 @@ func _init(_idxs_to_set: PackedInt64Array = PackedInt64Array()) -> void:
 
 ## Gets the bit at the index [param idx].
 func get_bit(idx: int) -> bool:
-	if idx < 0 or idx >= _bits.size():
-		return 0
+	var exceeds_known_groups := idx / NUM_BITS >= _bits.size()
 	
-	# BUG: https://github.com/godotengine/godot/issues/42966
-	@warning_ignore("integer_division")
+	if idx < 0 or exceeds_known_groups:
+		return false
+	
 	return (_bits[idx / NUM_BITS] >> (idx % NUM_BITS)) & 1
 
 ## Sets the bit at the index [param idx] to [code]1[/code].
 func raise_bit(idx: int) -> void:
-	# BUG: https://github.com/godotengine/godot/issues/42966
-	# BUG: https://github.com/godotengine/godot/issues/73222
-	@warning_ignore("integer_division")
 	var exceeds_known_groups := idx / NUM_BITS >= _bits.size()
 	
 	if exceeds_known_groups:
-		# BUG: https://github.com/godotengine/godot/issues/42966
-		@warning_ignore("integer_division")
 		_resize(idx / NUM_BITS + 1)
 	
-	# BUG: https://github.com/godotengine/godot/issues/42966
-	@warning_ignore("integer_division")
 	_bits[idx / NUM_BITS] |= 1 << (idx % NUM_BITS)
 
 ## Sets the bit at the index [param idx] to [code]0[/code].
 func lower_bit(idx: int) -> void:
-	# BUG: https://github.com/godotengine/godot/issues/42966
-	# BUG: https://github.com/godotengine/godot/issues/73222
-	@warning_ignore("integer_division")
 	var exceeds_known_groups := idx / NUM_BITS >= _bits.size()
 	
 	if exceeds_known_groups:
-		# BUG: https://github.com/godotengine/godot/issues/42966
-		@warning_ignore("integer_division")
 		_resize(idx / NUM_BITS + 1)
 	
-	# BUG: https://github.com/godotengine/godot/issues/42966
-	@warning_ignore("integer_division")
 	_bits[idx / NUM_BITS] &= ~(1 << (idx % NUM_BITS))
 
 ## Flips the bit at the index [param idx] from [code]0[/code] to [code]1[/code]
 ## or from [code]1[/code] to [code]0[/code].
 func flip_bit(idx: int) -> void:
-	@warning_ignore("standalone_ternary")
 	lower_bit(idx) if get_bit(idx) else raise_bit(idx)
 
 ## Raises the bits that this [Bitset] has raised in the [param other] [Bitset].
