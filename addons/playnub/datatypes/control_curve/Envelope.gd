@@ -39,7 +39,12 @@ var duration := 0.0001
 @export_range(0.0, 1.0, 0.0001, "hide_slider", "or_greater", "suffix:sec")
 var delay := 0.0
 
-## Creates an [Interpolator] action. It assumes that at least the
-## [member ControlCurve.end] is defined.
+## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
+## lasting [member duration] seconds after [member delay] seconds of delay. It assumes that
+## at least the [member ControlCurve.end] is defined.
 func create_interpolator() -> Interpolator:
-	return Interpolator.new().controlled_by(self)
+	var interpolator := Interpolator.new().controlled_by(self)
+	
+	interpolator.lasts(duration).after(delay)
+	
+	return interpolator

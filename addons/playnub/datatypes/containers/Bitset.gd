@@ -30,7 +30,7 @@ const NUM_BITS := 8
 
 var _bits := PackedByteArray()
 
-func _init(_idxs_to_set: PackedInt64Array = PackedInt64Array()) -> void:
+func _init(_idxs_to_set := PackedInt64Array()) -> void:
 	if not _idxs_to_set.is_empty():
 		var sorted_idxs := _idxs_to_set.duplicate()
 		
