@@ -21,33 +21,22 @@
 # SOFTWARE.
 
 class_name Module
-extends Node
+extends ModularityInterface
 
 ## A modular unit of logic and/or data.
 ## 
 ## A component-like type that can be attached to any [Node] while still utilizing
 ## the benefits that come from Godot's scene system.
 
-## What a unique module does when replacing another / others of the same type.
-enum UniquenessMode
-{
-	## Only replaces the reference. Does not affect the other module(s).
-	  REPLACE_ONLY
-	## Deletes the other module(s) from memory, then replaces it / them.
-	, DELETE_AND_REPLACE
-	## Stashes the other module(s) in the parent module, then replaces it / them.
-	## (Not functional yet.)
-	## @experimental: To be implemented when stashing or disabling (whichever is used) is introduced.
-	, STASH_AND_REPLACE
-}
-
 @export_group("Uniqueness", "uniqueness_")
 
 ## Whether there should only be 1 of this type of module in a parent module.
+## [b]NOTE[/b]: This only applies to the [b]most derived class[/b].
 @export
 var uniqueness_enabled := false
 
 ## How existing modules of the same type should be replaced, if there are any.
+## [b]NOTE[/b]: This only applies to the [b]most derived class[/b].
 @export
 var uniqueness_mode: UniquenessMode = UniquenessMode.REPLACE_ONLY
 
@@ -165,16 +154,17 @@ func has_submodule_type(script: Script) -> bool:
 func has_parent_module() -> bool:
 	return (not get_parent()) or get_parent() is Module
 
-## Virtual function that determines if the module should enforce uniqueness
-## programmatically as opposed to using the designer variable [member uniqueness_enabled].
-## Override to return [code]true[/code] if you wish to enable this.
-func is_strongly_unique() -> bool:
-	return false
+## See [method ModularityInterface.is_strongly_unique].
+func is_strongly_unique(super_level: int) -> bool:
+	if super_level == 0:
+		return super(super_level)
+	return super(super_level - 1)
 
-## Returns how existing modules of the same type should be replaced, if there are any,
-## assuming [method has_strong_uniqueness] returns [code]true[/code].
-func get_strong_uniqueness_mode() -> UniquenessMode:
-	return UniquenessMode.REPLACE_ONLY
+## See [method ModularityInterface.get_strong_uniqueness_mode].
+func get_strong_uniqueness_mode(super_level: int) -> UniquenessMode:
+	if super_level == 0:
+		return super(super_level)
+	return super(super_level - 1)
 
 func _add_type_groups() -> void:
 	if not script_type.is_empty():
@@ -182,7 +172,7 @@ func _add_type_groups() -> void:
 		
 		var script_base := attached_script.get_base_script()
 		
-		while script_base != null:
+		while script_base and script_base != ModularityInterface:
 			add_to_group(script_base.get_global_name())
 			script_base = script_base.get_base_script()
 		
@@ -196,44 +186,64 @@ func _register() -> void:
 	if not has_parent_module():
 		return
 	
-	var submodules := parent.get_all_submodules(attached_script)
+	var current_script := attached_script
+	var super_level := 0
 	
-	if _is_unique():
-		if submodules.is_empty():
-			submodules.append(self)
-		else:
-			match _get_uniqueness_mode():
-				UniquenessMode.DELETE_AND_REPLACE:
-					for submodule: Module in submodules:
-						submodule.queue_free()
+	while current_script and current_script != ModularityInterface:
+		var submodules := parent.get_all_submodules(current_script)
+		
+		if _is_unique(super_level):
+			if submodules.is_empty():
+				submodules.append(self)
+			else:
+				match _get_uniqueness_mode(super_level):
+					UniquenessMode.DELETE_AND_REPLACE:
+						for submodule: Module in submodules:
+							submodule.queue_free()
+					
+					# TODO: If/when stashing is implemented
+					#UniquenessMode.STASH_AND_REPLACE:
+						#for submodule: Module in submodules:
+							#submodule.stash()
 				
-				# TODO: If/when stashing is implemented
-				#UniquenessMode.STASH_AND_REPLACE:
-					#for submodule: Module in submodules:
-						#submodule.stash()
-			
-			submodules.clear()
+				submodules.clear()
+				submodules.append(self)
+		else:
 			submodules.append(self)
-	else:
-		submodules.append(self)
+		
+		current_script = current_script.get_base_script()
+		super_level += 1
 
 func _unregister() -> void:
 	if not has_parent_module():
 		return
 	
-	var submodules := parent.get_all_submodules(attached_script)
+	var current_script := attached_script
+	var super_level := 0
 	
-	if _is_unique():
-		submodules.clear()
-	else:
-		submodules.erase(self)
+	while current_script:
+		var submodules := parent.get_all_submodules(attached_script)
+		
+		if _is_unique(super_level):
+			submodules.clear()
+		else:
+			submodules.erase(self)
+		
+		current_script = current_script.get_base_script()
+		super_level += 1
 
-func _is_unique() -> bool:
-	return uniqueness_enabled or is_strongly_unique()
+func _is_unique(super_level: int) -> bool:
+	# If this is the most derived class, account for the designer variable
+	# of uniqueness
+	if super_level == 0:
+		return uniqueness_enabled or is_strongly_unique(super_level)
+	
+	# Otherwise use the class's
+	return is_strongly_unique(super_level)
 
-func _get_uniqueness_mode() -> UniquenessMode:
-	if is_strongly_unique():
-		return get_strong_uniqueness_mode()
+func _get_uniqueness_mode(super_level: int) -> UniquenessMode:
+	if is_strongly_unique(super_level):
+		return get_strong_uniqueness_mode(super_level)
 	elif uniqueness_enabled:
 		return uniqueness_mode
 	return UniquenessMode.REPLACE_ONLY
