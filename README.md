@@ -34,7 +34,7 @@ The Playnub plugin is a collection of many general-purpose game development patt
   - PID Controller: For controlling how a point follows a target using a control system
 - New Datatypes
   - Box: pass a reference, not a copy, of nearly any value in your game or in the engine to any other function
-  - Box fillers: make your boxed values designer-accessible, with multiple defined fillers with robust inspector tools
+  - Box fillers: make your boxed values designer-accessible by exporting pre-defined (or custom) fillers with robust inspector tools
   - Bitset: an array of booleans compressed into ints with bit manipulation logic
 - Randomization
   - Fast normal distribution randomness
