@@ -32,6 +32,10 @@ The Playnub plugin is a collection of many general-purpose game development patt
 - Interpolation Systems
   - Control Curves and Envelopes: For controlling precisely how a data point gets from A to B
   - PID Controller: For controlling how a point follows a target using a control system
+- New Datatypes
+  - Box: pass a reference, not a copy, of nearly any value in your game or in the engine to any other function
+  - Box fillers: make your boxed values designer-accessible, with multiple defined fillers with robust inspector tools
+  - Bitset: an array of booleans compressed into ints with bit manipulation logic
 - Randomization
   - Fast normal distribution randomness
   - Complete and deck randomness
@@ -59,7 +63,7 @@ The following is a list of things that I would like to implement into this proje
 Playnub requires **at least Godot 4.4**.
 
 ## Installation
-Recommended way: Download it from the [asset library](https://godotengine.org/asset-library/asset/4015) inside Godot for the most recent stable build.
+Recommended way: Download it from the [asset library](https://godotengine.org/asset-library/asset/4015) inside Godot for the most recent stable build.  
 Developer way: download directly from Github and copy the "addons/playnub" folder into your Godot project. The master branch may have breaking changes.
 
 ## License
