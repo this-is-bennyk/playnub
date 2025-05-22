@@ -31,20 +31,25 @@ extends BoxFiller
 @export
 var value := 0.0:
 	set(new_value):
-		if limits_enabled:
-			value = clampf(new_value, limits_minimum, limits_maximum)
-		else:
-			value = new_value
+		match limits_type:
+			Limits.OR_LESSER:
+				value = minf(new_value, limits_maximum)
+			Limits.OR_GREATER:
+				value = maxf(new_value, limits_minimum)
+			Limits.HARD:
+				value = clampf(new_value, limits_minimum, limits_maximum)
+			_:
+				value = new_value
 
 @export_group("Limits", "limits_")
 
-## Whether to have designer-controlled limits on the [member value].
+## What kind of designer-controlled limits to have on the [member value].
 @export
-var limits_enabled := false:
+var limits_type := Limits.SOFT:
 	set(new_value):
-		limits_enabled = new_value
+		limits_type = new_value
 		
-		if limits_enabled:
+		if limits_type != Limits.SOFT:
 			value = value
 
 ## The number the [member value] can't be lower than.
@@ -53,7 +58,7 @@ var limits_minimum := 0.0:
 	set(new_value):
 		limits_minimum = minf(new_value, limits_maximum)
 		
-		if limits_enabled:
+		if limits_type != Limits.SOFT:
 			value = value
 
 ## The number the [member value] can't be higher than.
@@ -62,7 +67,7 @@ var limits_maximum := 0.0:
 	set(new_value):
 		limits_maximum = maxf(new_value, limits_minimum)
 		
-		if limits_enabled:
+		if limits_type != Limits.SOFT:
 			value = value
 
 ## See [method Box.setup].

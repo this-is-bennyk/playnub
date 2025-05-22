@@ -31,6 +31,23 @@ extends Resource
 ## Inherit from this class to create designer-controlled values for [Resource]s
 ## that use [Box]es.
 
+## Options for numerical limits in certain box fillers.
+enum Limits
+{
+	## Limits on the numerical value are between [code](-∞, ∞)[/code].
+	## This means you can go below the minimum or above the maximum.
+	SOFT,
+	## Limits on the numerical value are between [code](-∞, max][/code].
+	## This means you can go below the minimum, but not above the maximum.
+	OR_LESSER,
+	## Limits on the numerical value are between [code][min, ∞)[/code].
+	## This means you can go above the maximum, but not below the minimum.
+	OR_GREATER,
+	## Limits on the numerical value are between [code][min, max][/code].
+	## This means you cannot go below the minimum nor above the maximum.
+	HARD,
+}
+
 ## The data to set in the [Box].
 var data = null
 ## The key to part of the [member data].

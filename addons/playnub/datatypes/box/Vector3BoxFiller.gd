@@ -33,14 +33,29 @@ var value := Vector3():
 	set(new_value):
 		value = new_value
 		
-		if limits_x_enabled:
-			value.x = clampf(value.x, limits_x_minimum, limits_x_maximum)
+		match limits_x_type:
+			Limits.OR_LESSER:
+				value.x = minf(value.x, limits_x_maximum)
+			Limits.OR_GREATER:
+				value.x = maxf(value.x, limits_x_minimum)
+			Limits.HARD:
+				value.x = clampf(value.x, limits_x_minimum, limits_x_maximum)
 		
-		if limits_y_enabled:
-			value.y = clampf(value.y, limits_y_minimum, limits_y_maximum)
+		match limits_y_type:
+			Limits.OR_LESSER:
+				value.y = minf(value.y, limits_y_maximum)
+			Limits.OR_GREATER:
+				value.y = maxf(value.y, limits_y_minimum)
+			Limits.HARD:
+				value.y = clampf(value.y, limits_y_minimum, limits_y_maximum)
 		
-		if limits_z_enabled:
-			value.z = clampf(value.z, limits_z_minimum, limits_z_maximum)
+		match limits_z_type:
+			Limits.OR_LESSER:
+				value.z = minf(value.z, limits_z_maximum)
+			Limits.OR_GREATER:
+				value.z = maxf(value.z, limits_z_minimum)
+			Limits.HARD:
+				value.z = clampf(value.z, limits_z_minimum, limits_z_maximum)
 
 @export_group("Limits", "limits_")
 
@@ -48,11 +63,11 @@ var value := Vector3():
 
 ## Whether to have designer-controlled limits on the x-axis of the [member value].
 @export
-var limits_x_enabled := false:
+var limits_x_type := Limits.SOFT:
 	set(new_value):
-		limits_x_enabled = new_value
+		limits_x_type = new_value
 		
-		if limits_x_enabled:
+		if limits_x_type != Limits.SOFT:
 			value = value
 
 ## The number the x-axis of the [member value] can't be lower than.
@@ -61,7 +76,7 @@ var limits_x_minimum := 0.0:
 	set(new_value):
 		limits_x_minimum = minf(new_value, limits_x_maximum)
 		
-		if limits_x_enabled:
+		if limits_x_type != Limits.SOFT:
 			value = value
 
 ## The number the x-axis of the [member value] can't be higher than.
@@ -70,18 +85,18 @@ var limits_x_maximum := 0.0:
 	set(new_value):
 		limits_x_maximum = maxf(new_value, limits_x_minimum)
 		
-		if limits_x_enabled:
+		if limits_x_type != Limits.SOFT:
 			value = value
 
 @export_subgroup("Y", "limits_y_")
 
 ## Whether to have designer-controlled limits on the y-axis of the [member value].
 @export
-var limits_y_enabled := false:
+var limits_y_type := Limits.SOFT:
 	set(new_value):
-		limits_y_enabled = new_value
+		limits_y_type = new_value
 		
-		if limits_y_enabled:
+		if limits_y_type != Limits.SOFT:
 			value = value
 
 ## The number the y-axis of the [member value] can't be lower than.
@@ -90,7 +105,7 @@ var limits_y_minimum := 0.0:
 	set(new_value):
 		limits_y_minimum = minf(new_value, limits_y_maximum)
 		
-		if limits_y_enabled:
+		if limits_y_type != Limits.SOFT:
 			value = value
 
 ## The number the y-axis of the [member value] can't be higher than.
@@ -99,18 +114,18 @@ var limits_y_maximum := 0.0:
 	set(new_value):
 		limits_y_maximum = maxf(new_value, limits_y_minimum)
 		
-		if limits_y_enabled:
+		if limits_y_type != Limits.SOFT:
 			value = value
 
 @export_subgroup("Z", "limits_z_")
 
 ## Whether to have designer-controlled limits on the z-axis of the [member value].
 @export
-var limits_z_enabled := false:
+var limits_z_type := Limits.SOFT:
 	set(new_value):
-		limits_z_enabled = new_value
+		limits_z_type = new_value
 		
-		if limits_z_enabled:
+		if limits_z_type != Limits.SOFT:
 			value = value
 
 ## The number the z-axis of the [member value] can't be lower than.
@@ -119,7 +134,7 @@ var limits_z_minimum := 0.0:
 	set(new_value):
 		limits_z_minimum = minf(new_value, limits_z_maximum)
 		
-		if limits_z_enabled:
+		if limits_z_type != Limits.SOFT:
 			value = value
 
 ## The number the z-axis of the [member value] can't be higher than.
@@ -128,7 +143,7 @@ var limits_z_maximum := 0.0:
 	set(new_value):
 		limits_z_maximum = maxf(new_value, limits_z_minimum)
 		
-		if limits_z_enabled:
+		if limits_z_type != Limits.SOFT:
 			value = value
 
 ## See [method Box.setup].
