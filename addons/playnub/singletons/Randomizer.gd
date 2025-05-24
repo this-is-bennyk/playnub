@@ -133,15 +133,37 @@ func deck_random(array: Array) -> Variant:
 		var new_indices: Array[int] = []
 		
 		new_indices.assign(range(array.size()))
-		_perform_fisher_yates(new_indices) # Normally Array.shuffle
+		_perform_fisher_yates_on_indices(new_indices) # Normally Array.shuffle
 		
 		_deck_indices[array] = new_indices
 		indices = new_indices
 	
 	return array[indices.pop_back()]
 
+## Shuffles all elements of the array in a random order, like [method Array.shuffle].
+func shuffle(array: Array) -> void:
+	_perform_fisher_yates_on_generics(array)
+
 # The RNG object doesn't come with a shuffle function
-func _perform_fisher_yates(indices: Array[int]) -> void:
+func _perform_fisher_yates_on_generics(elements: Array) -> void:
+	var size := elements.size()
+	
+	if size < 2:
+		return
+	
+	var from_index := size - 1
+	
+	while from_index >= 1:
+		var to_index := self.randi() % (from_index + 1)
+		var temp = elements.get(to_index)
+		
+		elements.set(to_index, elements.get(from_index))
+		elements.set(from_index, temp)
+		
+		from_index -= 1
+
+# The RNG object doesn't come with a shuffle function
+func _perform_fisher_yates_on_indices(indices: Array[int]) -> void:
 	var size := indices.size()
 	
 	if size < 2:
