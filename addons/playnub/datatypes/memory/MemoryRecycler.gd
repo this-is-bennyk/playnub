@@ -23,8 +23,8 @@
 class_name MemoryRecycler
 extends RefCounted
 
-## Allows for arrays of elements to have unique identifiers that can be recycled
-## rather than re-allocated, without ID invalidation.
+## Allows arrays to have elements that can be recycled rather than re-allocated,
+## and allows each element to have a UID.
 ## 
 ## Suppose that you have an array of elements that need to have unique IDs that can't
 ## be invalidated and that need to be allocated and deleted whenever you want. Also suppose
