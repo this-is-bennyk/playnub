@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://0ajkepjv2r1h"
-path="res://.godot/imported/float_box_filler_icon.svg-39d2eab4cca929adf7f4ee8af92b31fe.ctex"
+uid="uid://dx7jrq8bkskvj"
+path="res://.godot/imported/envelope_icon.svg-60a77b75f5d25c7a466b71ade622738c.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/playnub/branding/icons/float_box_filler_icon.svg"
-dest_files=["res://.godot/imported/float_box_filler_icon.svg-39d2eab4cca929adf7f4ee8af92b31fe.ctex"]
+source_file="res://addons/playnub/branding/icons/envelope_icon.svg"
+dest_files=["res://.godot/imported/envelope_icon.svg-60a77b75f5d25c7a466b71ade622738c.ctex"]
 
 [params]
 

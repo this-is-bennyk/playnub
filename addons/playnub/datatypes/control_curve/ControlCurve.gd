@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://cjtuc6fd1qgst")
 class_name ControlCurve
 extends Resource
 

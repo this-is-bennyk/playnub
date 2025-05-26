@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://bcccl0gj5kf4x")
 class_name MemoryRecycler
 extends RefCounted
 

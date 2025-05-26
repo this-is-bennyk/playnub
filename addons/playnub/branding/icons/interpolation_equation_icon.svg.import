@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://0ajkepjv2r1h"
-path="res://.godot/imported/float_box_filler_icon.svg-39d2eab4cca929adf7f4ee8af92b31fe.ctex"
+uid="uid://8kwvflcr8tvg"
+path="res://.godot/imported/interpolation_equation_icon.svg-6432ccb849929fbdc5c1a8ee3f4deef0.ctex"
 metadata={
 "has_editor_variant": true,
 "vram_texture": false
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://addons/playnub/branding/icons/float_box_filler_icon.svg"
-dest_files=["res://.godot/imported/float_box_filler_icon.svg-39d2eab4cca929adf7f4ee8af92b31fe.ctex"]
+source_file="res://addons/playnub/branding/icons/interpolation_equation_icon.svg"
+dest_files=["res://.godot/imported/interpolation_equation_icon.svg-6432ccb849929fbdc5c1a8ee3f4deef0.ctex"]
 
 [params]
 

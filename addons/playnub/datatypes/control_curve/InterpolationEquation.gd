@@ -22,12 +22,44 @@
 
 @tool
 
+@icon("uid://8kwvflcr8tvg")
 class_name InterpolationEquation
 extends Resource
 
 ## A math equation defining an interpolation behavior for a [ControlCurve].
 ## 
-## TODO
+## Allows you to specify complex behavior for a [ControlCurve] via a mathematical
+## equation. Equations may use the interpolant [code]t[/code] to get the queried
+## interpolant value between [code][0, 1][/code]. Provided are some examples
+## of valid equations:
+## [codeblock]
+## # You can input a simple math equation.
+## 1
+## t + 1
+## t - 5
+## 2 * t
+## t * t
+## t / 3.0
+## # etc.
+## 
+## # Built-in math equations can be used.
+## sin(t)
+## cos(t)
+## exp(t)
+## pow(t, 2)
+## pow(t, t)
+## # etc.
+## 
+## # For a complete oscillation motion:
+## sin(TAU * t)
+## cos(TAU * t)
+## 
+## # For a complete oscillation motion that dampens toward the original value,
+## # with k being a designer value that adjusts the period, i.e. the number
+## # of times to oscillate before returning fully to the original value:
+## sin(k * TAU * t) * (1.0 - t) + t
+## cos(k * TAU * t) * (1.0 - t) + t
+## [/codeblock]
 
 const T_VARIABLE: Array[String] = ["t"]
 

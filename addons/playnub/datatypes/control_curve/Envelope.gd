@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://dx7jrq8bkskvj")
 class_name Envelope
 extends ControlCurve
 

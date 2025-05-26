@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://1o50di42u0o6")
 class_name Bitset
 extends RefCounted
 

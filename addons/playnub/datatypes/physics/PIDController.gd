@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @tool
+@icon("uid://cikyi3pb8dm5c")
 class_name PIDController
 extends Resource
 

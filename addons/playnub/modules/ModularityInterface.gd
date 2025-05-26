@@ -41,12 +41,12 @@ enum UniquenessMode
 }
 
 ## Virtual function that determines if the module should enforce uniqueness
-## programmatically as opposed to using the designer variable [member uniqueness_enabled].
+## programmatically as opposed to using the designer variable [member Module.uniqueness_enabled].
 ## Override this function to enable it by copy and pasting this snippet:
 ## [codeblock]
 ## func is_strongly_unique(super_level: int) -> bool:
 ##     if super_level == 0:
-##         return true
+##         return true # Replace with true if there should only be 1 of this type of module as a child to a parent module, false otherwise.
 ##     return super(super_level - 1)
 ## [/codeblock]
 ## [b]HACK[/b]: This is make sure that we can properly allow
