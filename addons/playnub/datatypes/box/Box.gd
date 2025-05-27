@@ -118,14 +118,20 @@ func _init(_data_ = null, _key_ = null) -> void:
 ## func box_set(value: Variant) -> void: # The parameter can have a set type.
 ##     pass # Use the value as you'd like.
 ## [/codeblock]
+## [codeblock]
+## Box.new(box_get, box_set)
+## [/codeblock]
 ## [i]As lambdas:[/i]
 ## [codeblock]
-## func() -> Variant: # A set type can be returned.
+## var box_get := func() -> Variant: # A set type can be returned.
 ##     return null # Return something here.
 ## [/codeblock]
 ## [codeblock]
-## func(value: Variant) -> void: # The parameter can have a set type.
+## var box_set := func(value: Variant) -> void: # The parameter can have a set type.
 ##     pass # Use the value as you'd like.
+## [/codeblock]
+## [codeblock]
+## Box.new(box_get, box_set)
 ## [/codeblock]
 ## To emulate a constant variable, pass the empty callable [code]Callable()[/code] as the [param new_key].
 ## An error will be thrown in editor builds if the user attempts to set the value the box is referencing.
