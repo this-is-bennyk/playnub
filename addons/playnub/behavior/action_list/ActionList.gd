@@ -93,7 +93,7 @@ func update(dt: float) -> void:
 		if not action.done():
 			# Add the groups the action is blocking to the block list, if it has any
 			action.blocking_groups.merge_onto(_blocked_groups)
-			push(action)
+			push_back(action)
 		
 		if _dirty_by_reverse:
 			return
@@ -101,16 +101,18 @@ func update(dt: float) -> void:
 		execution_index += 1
 
 ## Adds an [param action] to the end of the [member back_buffer].
-func push(action: Action) -> void:
+func push_back(action: Action) -> void:
 	back_buffer.append(action)
 
 ## Adds multiple [Action]s from a [param list] to the end of the [member back_buffer].
-func push_list(list: Array[Action]) -> void:
+func push_back_list(list: Array[Action]) -> void:
 	back_buffer.append_array(list)
 
+## Adds an [param action] to the start of the [member back_buffer].
 func push_front(action: Action) -> void:
 	back_buffer.push_front(action)
 
+## Adds multiple [Action]s from a [param list] to the start of the [member back_buffer].
 func push_front_list(list: Array[Action]) -> void:
 	for idx: int in range(list.size() - 1, -1, -1):
 		back_buffer.push_front(list[idx])
@@ -121,6 +123,8 @@ func clear() -> void:
 	back_buffer.clear()
 	front_buffer.clear()
 
+# TODO: Accept parameter to reverse from end (or any arbitrary point? Would require reworking fast forward, which is needed anyway)
+## Makes the action list play in reverse order from the moment this is called.
 func reverse() -> void:
 	back_buffer.reverse()
 	
@@ -129,8 +133,11 @@ func reverse() -> void:
 	
 	_dirty_by_reverse = true
 
+## Returns whether there are any actions being processed.
 func is_empty() -> bool:
 	return back_buffer.is_empty()
 
+# HACK: TODO: Replace with more nuanced solution (process all remaining actions at once) (up to point?)
+## Instantly processes all actions up until the end.
 func fast_forward() -> void:
 	update(FAST_FORWARD_TIME)
