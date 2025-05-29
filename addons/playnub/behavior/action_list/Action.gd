@@ -47,7 +47,7 @@ var blocking_groups := Bitset.new()
 
 # The current delta time elasped.
 var _dt := 0.0
-# The amount of time that has elapsed. Starts at 0, ends at duration + delay.
+# The amount of time that has elapsed. Starts at 0, ends at get_total_time().
 var _time_passed := 0.0
 # The zero-based index of when this action is being executed relative to others
 # in the parent action list, i.e. this is the nth action to be executed.
@@ -60,21 +60,26 @@ var _list_index := 0
 var _entered := false
 # Whether this action has already been finished.
 var _done := false
-# Whether this action counts down to 0.0 or up to duration + delay.
+# Whether this action counts down to 0.0 or up to get_total_time().
 var _reversed := false
 
+## Sets the object to act upon.
 func targets(_target) -> Action:
 	target = _target
 	return self
 
+## Sets the duration of this action.
 func lasts(_duration_sec: float = 0.0) -> Action:
 	duration = _duration_sec
 	return self
 
+## Sets the delay of this action.
 func after(_delay_sec: float = 0.0) -> Action:
 	delay = _delay_sec
 	return self
 
+## Sets the groups that this action belongs to.[br]
+## [b]NOTE[/b]: All actions belong to the [b]0th group[/b], so use indices in the range [code][1, ∞)[/code].
 func in_groups(_groups: PackedInt64Array = PackedInt64Array()) -> Action:
 	if not _groups.has(0):
 		var groups_copy := _groups.duplicate()
@@ -114,8 +119,8 @@ func blocks(indices: PackedInt64Array, override: bool = false) -> Action:
 	
 	return self
 
-## Performs logic and increases the amount of
-## time taken by this action by [param dt] seconds. Override [method update]
+## Performs logic and increases the amount of time taken by this action by
+## [param dt] seconds. Override [method enter], [method update], and/or [method exit]
 ## to customize the behavior of this action.
 func process(dt: float, execution_index: int, list_index: int) -> void:
 	if done() or (target is Object and (not target or not is_instance_valid(target))):
@@ -159,7 +164,7 @@ func entered() -> bool:
 func done() -> bool:
 	return (_done or
 		(_reversed and _time_passed <= 0.0) or
-		(not _reversed and _time_passed >= duration + delay))
+		(not _reversed and _time_passed >= get_total_time()))
 
 ## Whether this action is being delayed.
 func delayed() -> bool:
@@ -170,34 +175,66 @@ func finish() -> void:
 	_done = true
 
 ## @experimental
-## Enables a flag that processes the recorded time of this action in reverse.
-## That is, the time passed counts down to [code]0.0[/code] instead of up to
-## [code]duration + delay[/code].
-func reverse() -> void:
-	_reversed = true
+## Toggles the direction of time that this action is processed in.[br]
+## If [param restart] is [code]true[/code], the action resets progress to its new beginning,
+## which is [method get_total_time] if reversed and [code]0.0[/code] if not.[br]
+## Otherwise, the action reverses its current progress to its new end,
+## which is [code]0.0[/code] if reversed and [method get_total_time] if not.
+func reverse(restart: bool) -> void:
+	_reversed = not _reversed
+	
+	if restart:
+		_entered = false
+		
+		if _reversed:
+			_time_passed = get_total_time()
+		else:
+			_time_passed = 0.0
 
-## How many seconds have passed since the action was entered.
-func get_time_passed() -> float:
+## @experimental
+## Returns whether this action is being processed in reverse.
+func is_reversed() -> bool:
+	return _reversed
+
+## Returns how many seconds have passed since the action was entered.
+func get_relative_time_passed() -> float:
 	return clampf(_time_passed - delay, 0.0, duration)
 
-## How far into the action we are as a percent of the duration that's been completed.
+## Returns how many seconds are left to process relative to the [member duration].
+func get_relative_time_remaining() -> float:
+	return clampf(duration - get_relative_time_passed(), 0.0, duration)
+
+## Returns how many seconds have passed since the action was first processed.
+func get_absolute_time_passed() -> float:
+	return clampf(_time_passed, 0.0, get_total_time())
+
+## Returns how many seconds are left to process relative to the total time,
+## as seen in [method get_total_time].
+func get_absolute_time_remaining() -> float:
+	return clampf(get_total_time() - get_absolute_time_passed(), 0.0, get_total_time())
+
+## Returns the total time this action processes for.
+func get_total_time() -> float:
+	return duration + delay
+
+## Returns how far into the action we are as a percent of the [member duration] that's been completed.
 func get_interpolation() -> float:
 	if duration == 0.0:
 		return 0.0
 	return clampf(inverse_lerp(0.0, duration, _time_passed - delay), 0.0, 1.0)
 
-## The delta time for the current frame.
+## Returns the delta time for the current frame.
 func get_delta_time() -> float:
 	return _dt * (-1.0 if _reversed else 1.0)
 
 ## Returns the zero-based index of when this action is being executed relative to others
-## in the parent action list, i.e. this is the nth action to be executed. Note that
-## this is affected by reversal and blocking.
+## in the parent action list, i.e. this is the nth action to be executed.[br]
+## [b]NOTE[/b]: This is affected by reversal and blocking.
 func get_execution_index() -> int:
 	return _execution_index
 
 ## Returns the zero-based index of when this action is being executed relative to others
-## in the parent action list, i.e. this is the nth action to be executed. Note that
-## this is affected by reversal, but NOT by blocking.
+## in the parent action list, i.e. this is the nth action to be executed.[br]
+## [b]NOTE[/b]: This is affected by reversal, but NOT by blocking.
 func get_list_index() -> int:
 	return _list_index
