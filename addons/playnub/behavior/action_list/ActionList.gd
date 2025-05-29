@@ -51,7 +51,7 @@ var _blocked_groups := Bitset.new()
 # Useful if the list is changed mid-processing.
 var _processed_actions: Dictionary[Action, int] = {}
 # The delta time given to us, adjusted by different scales.
-var _adjusted_dt := 0.0
+var _delta := 0.0
 
 # Internal flag to detect when a change was made to the action list. Useful for when this occurs mid-processing.
 var _dirty := false
@@ -60,10 +60,7 @@ var _dirty := false
 func update(delta: float) -> void:
 	var list_index := 0
 	var execution_index := 0
-	_adjusted_dt = delta_multiplier * delta
-	
-	if ignore_engine_time_scale:
-		_adjusted_dt *= Engine.time_scale
+	_delta = delta
 	
 	# Acknowledge changes from a previous call, if there was one
 	_dirty = false
@@ -80,7 +77,7 @@ func update(delta: float) -> void:
 		if not (_processed_actions.has(action) or action.done()):
 			# Process the action if it isn't in a group that's being blocked
 			if not action.participating_groups.any_bits_from(_blocked_groups):
-				action.process(_adjusted_dt, execution_index, list_index)
+				action.process(_get_adjusted_delta(), execution_index, list_index)
 			
 			# Mark this action as having been processed for this frame
 			_processed_actions[action] = execution_index
@@ -223,7 +220,7 @@ func skip() -> void:
 			# Force indefinite actions to finish cleanly
 			if action is IndefiniteAction:
 				action.finish()
-				action.process(_adjusted_dt, execution_index, list_index)
+				action.process(_get_adjusted_delta(), execution_index, list_index)
 			# Force all actions to finish processing
 			else:
 				action.process(action.get_absolute_time_remaining(), execution_index, list_index)
@@ -233,3 +230,6 @@ func skip() -> void:
 		list_index += 1
 	
 	_dirty = true
+
+func _get_adjusted_delta() -> float:
+	return _delta * delta_multiplier * (1.0 if ignore_engine_time_scale else Engine.time_scale)
