@@ -23,6 +23,11 @@
 class_name InstantAction
 extends Action
 
+## An action that does last for any amount of time.
+
+func _init() -> void:
+	duration = 0.0
+
 func lasts(_duration_sec: float = 0.0) -> Action:
 	duration = 0.0
 	return self
@@ -31,5 +36,4 @@ func enter() -> void:
 	finish()
 
 func done() -> bool:
-	# TODO: Need more elegant solution if we want to execute on reverse (i.e. persistence)
-	return _done or _reversed
+	return _done

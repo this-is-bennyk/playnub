@@ -30,6 +30,7 @@ extends RefCounted
 const NUM_BITS := 8
 
 var _bits := PackedByteArray()
+var _last_known_bit := -1
 
 func _init(_idxs_to_set := PackedInt64Array()) -> void:
 	if not _idxs_to_set.is_empty():
@@ -44,11 +45,14 @@ func _init(_idxs_to_set := PackedInt64Array()) -> void:
 		for idx: int in sorted_idxs:
 			raise_bit(idx)
 
+## Sets the bit at the index [param idx] to [code]1[/code]
+## if [param flag] is [code]true[/code], else [code]0[/code].
+func set_bit(idx: int, flag: bool) -> void:
+	raise_bit(idx) if flag else lower_bit(idx)
+
 ## Gets the bit at the index [param idx].
 func get_bit(idx: int) -> bool:
-	var exceeds_known_groups := idx / NUM_BITS >= _bits.size()
-	
-	if idx < 0 or exceeds_known_groups:
+	if idx < 0 or idx > _last_known_bit:
 		return false
 	
 	return (_bits[idx / NUM_BITS] >> (idx % NUM_BITS)) & 1
@@ -61,6 +65,7 @@ func raise_bit(idx: int) -> void:
 		_resize(idx / NUM_BITS + 1)
 	
 	_bits[idx / NUM_BITS] |= 1 << (idx % NUM_BITS)
+	_last_known_bit = maxi(_last_known_bit, idx)
 
 ## Sets the bit at the index [param idx] to [code]0[/code].
 func lower_bit(idx: int) -> void:
@@ -70,6 +75,7 @@ func lower_bit(idx: int) -> void:
 		_resize(idx / NUM_BITS + 1)
 	
 	_bits[idx / NUM_BITS] &= ~(1 << (idx % NUM_BITS))
+	_last_known_bit = maxi(_last_known_bit, idx)
 
 ## Flips the bit at the index [param idx] from [code]0[/code] to [code]1[/code]
 ## or from [code]1[/code] to [code]0[/code].
@@ -83,6 +89,8 @@ func merge_onto(other: Bitset) -> void:
 	
 	for i: int in _bits.size():
 		other._bits[i] |= _bits[i]
+	
+	other._last_known_bit = maxi(other._last_known_bit, _last_known_bit)
 
 ## Whether this [Bitset] and the [param other] [Bitset] share any raised bits.
 func any_bits_from(other: Bitset) -> bool:
@@ -94,6 +102,11 @@ func any_bits_from(other: Bitset) -> bool:
 ## Erases all the raised bits.
 func clear() -> void:
 	_bits.fill(0)
+	_last_known_bit = -1
+
+## Returns the number of bits.
+func size() -> int:
+	return _last_known_bit + 1
 
 func _resize(new_size: int) -> void:
 	_bits.resize(new_size)

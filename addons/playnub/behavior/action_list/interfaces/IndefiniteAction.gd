@@ -23,9 +23,32 @@
 class_name IndefiniteAction
 extends Action
 
+## An action that lasts for a user-defined (i.e. indeterminate) amount of time.
+
+var _start_ticks_msec := -1
+
+## See [method Action.lasts]. Overriden to not affect [member Action.duration].
 func lasts(_duration_sec: float = 0.0) -> Action:
-	duration = INF
 	return self
 
+## Use [method indefinite_enter] instead.
+func enter() -> void:
+	_start_ticks_msec = Time.get_ticks_msec()
+	duration = 0.0
+	indefinite_enter()
+
+## Use [method indefinite_update] instead.
+func update() -> void:
+	if not is_reversed():
+		duration = float(Time.get_ticks_msec() - _start_ticks_msec) / 1000.0
+	
+	indefinite_update()
+
+func indefinite_enter() -> void:
+	pass
+
+func indefinite_update() -> void:
+	pass
+
 func done() -> bool:
-	return _done
+	return _done or (_reversed and _time_passed <= 0.0)

@@ -47,7 +47,7 @@ var blocking_groups := Bitset.new()
 
 # The current delta time elasped.
 var _dt := 0.0
-# The amount of time that has elapsed. Starts at 0, ends at get_total_time().
+# The amount of time that has elapsed. Starts at 0, ends at get_total_processing_time().
 var _time_passed := 0.0
 # The zero-based index of when this action is being executed relative to others
 # in the parent action list, i.e. this is the nth action to be executed.
@@ -60,7 +60,7 @@ var _list_index := 0
 var _entered := false
 # Whether this action has already been finished.
 var _done := false
-# Whether this action counts down to 0.0 or up to get_total_time().
+# Whether this action counts down to 0.0 or up to get_total_processing_time().
 var _reversed := false
 
 ## Sets the object to act upon.
@@ -164,7 +164,7 @@ func entered() -> bool:
 func done() -> bool:
 	return (_done or
 		(_reversed and _time_passed <= 0.0) or
-		(not _reversed and _time_passed >= get_total_time()))
+		(not _reversed and _time_passed >= get_total_processing_time()))
 
 ## Whether this action is being delayed.
 func delayed() -> bool:
@@ -174,22 +174,20 @@ func delayed() -> bool:
 func finish() -> void:
 	_done = true
 
-## @experimental
-## Toggles the direction of time that this action is processed in.[br]
-## If [param restart] is [code]true[/code], the action resets progress to its new beginning,
-## which is [method get_total_time] if reversed and [code]0.0[/code] if not.[br]
-## Otherwise, the action reverses its current progress to its new end,
-## which is [code]0.0[/code] if reversed and [method get_total_time] if not.
-func reverse(restart: bool) -> void:
-	_reversed = not _reversed
+## Makes the action resets progress to its beginning,
+## which is [method get_total_processing_time] if reversed and [code]0.0[/code] if not.
+func restart() -> void:
+	_entered = false
 	
-	if restart:
-		_entered = false
-		
-		if _reversed:
-			_time_passed = get_total_time()
-		else:
-			_time_passed = 0.0
+	if _reversed:
+		_time_passed = get_total_processing_time()
+	else:
+		_time_passed = 0.0
+
+## @experimental
+## Toggles the direction of time that this action is processed in.
+func reverse() -> void:
+	_reversed = not _reversed
 
 ## @experimental
 ## Returns whether this action is being processed in reverse.
@@ -206,15 +204,15 @@ func get_relative_time_remaining() -> float:
 
 ## Returns how many seconds have passed since the action was first processed.
 func get_absolute_time_passed() -> float:
-	return clampf(_time_passed, 0.0, get_total_time())
+	return clampf(_time_passed, 0.0, get_total_processing_time())
 
 ## Returns how many seconds are left to process relative to the total time,
-## as seen in [method get_total_time].
+## as seen in [method get_total_processing_time].
 func get_absolute_time_remaining() -> float:
-	return clampf(get_total_time() - get_absolute_time_passed(), 0.0, get_total_time())
+	return clampf(get_total_processing_time() - get_absolute_time_passed(), 0.0, get_total_processing_time())
 
-## Returns the total time this action processes for.
-func get_total_time() -> float:
+## Returns the total time this action is processed for, in seconds.
+func get_total_processing_time() -> float:
 	return duration + delay
 
 ## Returns how far into the action we are as a percent of the [member duration] that's been completed.
@@ -233,8 +231,8 @@ func get_delta_time() -> float:
 func get_execution_index() -> int:
 	return _execution_index
 
-## Returns the zero-based index of when this action is being executed relative to others
-## in the parent action list, i.e. this is the nth action to be executed.[br]
+## Returns the zero-based index of when this action is located relative to others
+## in the parent action list, i.e. this is the nth action in the list.[br]
 ## [b]NOTE[/b]: This is affected by reversal, but NOT by blocking.
 func get_list_index() -> int:
 	return _list_index
