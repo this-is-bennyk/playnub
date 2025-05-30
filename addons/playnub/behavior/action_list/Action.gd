@@ -184,12 +184,10 @@ func restart() -> void:
 	else:
 		_time_passed = 0.0
 
-## @experimental
 ## Toggles the direction of time that this action is processed in.
 func reverse() -> void:
 	_reversed = not _reversed
 
-## @experimental
 ## Returns whether this action is being processed in reverse.
 func is_reversed() -> bool:
 	return _reversed

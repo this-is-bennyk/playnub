@@ -118,10 +118,6 @@ func get_total_processing_time() -> float:
 	for index: int in _actions.size():
 		var action := _actions[index]
 		
-		# ...unless an action is indefinite, in which case break out early
-		if action is IndefiniteAction:
-			return INF
-		
 		var blocked := action.participating_groups.any_bits_from(temp_blocking_groups)
 		
 		actions_blocked.set_bit(index, blocked)
