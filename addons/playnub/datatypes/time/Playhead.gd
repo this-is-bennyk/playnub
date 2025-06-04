@@ -69,15 +69,15 @@ enum TimerFormat
 @export_group("Time", "_seconds_")
 
 ## The number of whole seconds that the playhead has passed.
-@export_range(0, 1, 1, "or_greater")
+@export_range(0, 1, 1, "or_greater", "suffix:sec")
 var _seconds_whole := 0
 
 ## The current fraction of a second that the playhead has passed.
-@export_range(0.0, 0.999, 0.001)
+@export_range(0.0, 0.999, 0.001, "suffix:sec")
 var _seconds_fraction := 0.0
 
 ## Editor-only variable that manipulates the above numbers more easily.
-@export_custom(PROPERTY_HINT_RANGE, "0.0,1.0,0.001,hide_slider,or_greater", PROPERTY_USAGE_EDITOR)
+@export_custom(PROPERTY_HINT_RANGE, "0.0,1.0,0.001,hide_slider,or_greater,suffix:sec", PROPERTY_USAGE_EDITOR)
 var _seconds_slider: float:
 	get:
 		return to_float()
@@ -194,6 +194,7 @@ func _init(_seconds := 0.0) -> void:
 func _to_string() -> String:
 	const EMPTY_STR := &""
 	const SPACE_STR := &" "
+	const ZERO_STR := &"0"
 	
 	const DECIMAL_POINT := &"."
 	
@@ -220,17 +221,19 @@ func _to_string() -> String:
 	var suffix_days    := LETTER_DAYS
 	var suffix_weeks   := LETTER_WEEKS
 	
+	var segments: TimeSegments = stringification_time_segments
+	
 	match stringification_timer_format:
 		TimerFormat.COLONS:
 			suffix_seconds = EMPTY_STR
-			suffix_minutes = COLON_TIME_SEPARATOR
-			suffix_hours   = COLON_TIME_SEPARATOR
-			suffix_days    = COLON_TIME_SEPARATOR
-			suffix_weeks   = COLON_TIME_SEPARATOR
+			suffix_minutes = COLON_TIME_SEPARATOR if segments & (TimeSegments.SECONDS) else EMPTY_STR
+			suffix_hours   = COLON_TIME_SEPARATOR if segments & (TimeSegments.SECONDS | TimeSegments.MINUTES) else EMPTY_STR
+			suffix_days    = COLON_TIME_SEPARATOR if segments & (TimeSegments.SECONDS | TimeSegments.MINUTES | TimeSegments.HOURS) else EMPTY_STR
+			suffix_weeks   = COLON_TIME_SEPARATOR if segments & (TimeSegments.SECONDS | TimeSegments.MINUTES | TimeSegments.HOURS | TimeSegments.DAYS) else EMPTY_STR
 		
 		TimerFormat.PRIMES:
 			suffix_seconds = PRIMES_SECONDS
-			suffix_minutes = PRIMES_MINUTES
+			suffix_minutes = PRIMES_MINUTES if segments & TimeSegments.MINUTES else EMPTY_STR
 	
 	var fraction_str := ""
 	
@@ -245,12 +248,11 @@ func _to_string() -> String:
 			fraction_str = EMPTY_STR
 	
 	var parts := PackedStringArray()
-	var segments: TimeSegments = stringification_time_segments
 	
 	if stringification_time_segments == 0 or segments == TimeSegments.SECONDS:
 		parts.push_back(str(_seconds_whole, fraction_str, suffix_seconds))
 	elif segments & TimeSegments.SECONDS:
-		parts.push_back(str(seconds, fraction_str, suffix_seconds))
+		parts.push_back(str(ZERO_STR if seconds < 10 else EMPTY_STR, seconds, fraction_str, suffix_seconds))
 	
 	if segments & TimeSegments.MINUTES:
 		parts.push_back(str(minutes, suffix_minutes))
