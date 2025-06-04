@@ -29,17 +29,7 @@ extends Action
 ## end, are difficult to split into separate pieces, especially ones that can be manipulated
 ## with operations like event re-arrangement and reversal. Since the [IndefiniteAction]
 ## is part of the action list system, this capability is built-in, allowing logic
-## that would normally be difficult to adjust to be much simpler.[br][br]
-## [b]NOTE[/b]: Like many things with computers, this action is not truly indefinite.
-## It will wrap around in about [b]292 billion years[/b].
-
-# REMARK: The reason for this is because the below numbers represent seconds with a whole part
-# (64-bit integer by default) and a decimal part (0-1, 64-bit floating point). With the integer
-# increasing once per second (unmodified), it'll wrap around in LLONG_MAX seconds, which is greater
-# than what can be calculated by looking up "9223372036854775807 seconds to years."
-# [Default search engine] rounds up the number to 9223372036854776000 due to floating-point error,
-# giving us ~292.5B years. Your mileage may vary in single-precision mode, but not by any meaningful amount.
-# TL;DR: Don't sweat it. :D
+## that would normally be difficult to adjust to be much simpler.
 
 # Tracks the position in time, in seconds, this indefinite action has been processed at.
 var _timeline_position_whole := 0

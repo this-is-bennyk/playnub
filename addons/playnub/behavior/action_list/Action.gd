@@ -120,26 +120,36 @@ func blocks(indices: PackedInt64Array, override: bool = false) -> Action:
 	return self
 
 ## Performs logic and increases the amount of time taken by this action by
-## [param dt] seconds. Override [method enter], [method update], and/or [method exit]
+## [param delta] seconds. Override [method enter], [method update], and/or [method exit]
 ## to customize the behavior of this action.
-func process(dt: float, execution_index: int, list_index: int) -> void:
+func process(delta: float, execution_index: int, list_index: int) -> void:
 	if done() or (target is Object and (not target or not is_instance_valid(target))):
+		_done = true
 		return
 	
-	_dt = dt
+	_dt = delta
 	_time_passed += get_delta_time()
 	_execution_index = execution_index
 	_list_index = list_index
 	
 	if not delayed():
 		if not entered():
-			enter()
+			if is_reversed():
+				exit()
+			else:
+				enter()
+			
 			_entered = true
 		
 		update()
 		
 		if done():
-			exit()
+			_done = true
+			
+			if is_reversed():
+				enter()
+			else:
+				exit()
 
 ## Performs logic upon this action being encountered for the first time.
 ## Override this method to customize the behavior of the action.
@@ -178,6 +188,7 @@ func finish() -> void:
 ## which is [method get_total_processing_time] if reversed and [code]0.0[/code] if not.
 func restart() -> void:
 	_entered = false
+	_done = false
 	
 	if _reversed:
 		_time_passed = get_total_processing_time()
@@ -194,19 +205,36 @@ func is_reversed() -> bool:
 
 ## Returns how many seconds have passed since the action was entered.
 func get_relative_time_passed() -> float:
-	return clampf(_time_passed - delay, 0.0, duration)
+	var result := clampf(_time_passed - delay, 0.0, duration)
+	
+	if is_reversed():
+		result = duration - result
+	
+	return result
 
 ## Returns how many seconds are left to process relative to the [member duration].
 func get_relative_time_remaining() -> float:
-	return clampf(duration - get_relative_time_passed(), 0.0, duration)
+	var result := clampf(duration - get_relative_time_passed(), 0.0, duration)
+	
+	if is_reversed():
+		result = duration - result
+	
+	return result
 
 ## Returns how many seconds have passed since the action was first processed.
 func get_absolute_time_passed() -> float:
-	return clampf(_time_passed, 0.0, get_total_processing_time())
+	var result := clampf(_time_passed, 0.0, get_total_processing_time())
+	
+	if is_reversed():
+		result = get_total_processing_time() - result
+	
+	return result
 
 ## Returns how many seconds are left to process relative to the total time,
 ## as seen in [method get_total_processing_time].
 func get_absolute_time_remaining() -> float:
+	if is_reversed():
+		return clampf(_time_passed, 0.0, get_total_processing_time())
 	return clampf(get_total_processing_time() - get_absolute_time_passed(), 0.0, get_total_processing_time())
 
 ## Returns the total time this action is processed for, in seconds.
