@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://b3eltima01jdp")
 class_name IndefiniteAction
 extends Action
 
@@ -31,15 +32,12 @@ extends Action
 ## is part of the action list system, this capability is built-in, allowing logic
 ## that would normally be difficult to adjust to be much simpler.
 
-# Tracks the position in time, in seconds, this indefinite action has been processed at.
-var _timeline_position: Playhead = null
-
 # Tracks the farthest position in time, in seconds, this indefinite action has been processed
 # when going forward. Think of it like the end of the timeline, and moves forward when a keyframe is added
 # (or in this case, when the position has gone beyond the end of the timeline).
 var _timeline_end: Playhead = null
 
-## See [method Action.lasts]. Overriden to not affect [member Action.duration].
+## Overrides [method Action.lasts] to not affect [member Action.duration].
 func lasts(_duration_sec: Playhead = null) -> Action:
 	return self
 
@@ -48,7 +46,6 @@ func enter() -> void:
 	# Only reset duration if starting from the beginning of forward progress
 	if not is_reversed():
 		duration.reset()
-		_timeline_position.reset()
 		_timeline_end.reset()
 	
 	indefinite_enter()
@@ -80,11 +77,11 @@ func indefinite_update() -> void:
 func indefinite_exit() -> void:
 	pass
 
-## See [method Action.done].
+## Overrides [method Action.done] to only be done if the user says so or if the action
+## has been reversed and has reached the beginning again.
 func done() -> bool:
 	return _done or (_reversed and _time_passed.is_zero())
 
 func _instrument_duration() -> void:
-	_timeline_position.move(get_delta_time())
-	_timeline_end.max(_timeline_position, _timeline_end)
+	_timeline_end.max(_time_passed, _timeline_end)
 	duration.assign(_timeline_end)

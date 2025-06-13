@@ -77,7 +77,7 @@ var expression_string := "":
 		emit_changed()
 
 ## Editor-only pseudo-console to let the designer know if there's any issues with compiling
-## the equation.
+## the equation.[br]
 ## [b]NOTE[/b]: This doesn't guarantee that the equation will work if it's expecting
 ## a function from the [member base_instance].
 @export_custom(PROPERTY_HINT_MULTILINE_TEXT, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY)
@@ -122,5 +122,7 @@ func evaluate(t: float) -> float:
 	
 	return result as float
 
+## Creates and returns a copy of this equation. [param deep] determines whether to
+## make unique copies of the nested resources of this curve.
 func clone(deep := false) -> InterpolationEquation:
 	return duplicate(deep) as InterpolationEquation

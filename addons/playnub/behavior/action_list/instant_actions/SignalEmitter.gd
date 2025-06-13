@@ -20,8 +20,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://d38dbsp53gt3m")
 class_name SignalEmitter
 extends InstantAction
 
+## Emits a [Signal] when this action is reached.
+## 
+## Pass a [Signal] to [method Action.targets] to use this action:
+## [codeblock]
+## # Like this:
+## SignalEmitter.new().targets(my_signal)
+## [/codeblock]
+
+## Emits the [Signal] given by the [member Action.target].
 func update() -> void:
 	(target as Signal).emit()

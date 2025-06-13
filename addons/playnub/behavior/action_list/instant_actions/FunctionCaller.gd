@@ -20,15 +20,29 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://icbbhjlyokr6")
 class_name FunctionCaller
 extends InstantAction
 
+## Calls a function via a [Callable] when this action is reached.
+## 
+## Pass a [Callable] to [method Action.targets] to use this action:
+## [codeblock]
+## # Like this:
+## FunctionCaller.new().targets(func() -> void: do_logic())
+## # Or this:
+## FunctionCaller.new().targets(my_func)
+## [/codeblock]
+
+## Whether to pass this action as the first argument to the given [Callable].
 var self_bind := false
 
+## Sets [member self_bind].
 func binds_self(should_bind := false) -> InstantAction:
 	self_bind = should_bind
 	return self
 
+## Executes the [Callable] given by the [member Action.target].
 func update() -> void:
 	if self_bind:
 		(target as Callable).bind(self).call()

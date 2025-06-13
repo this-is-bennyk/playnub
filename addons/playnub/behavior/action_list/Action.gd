@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@icon("uid://p2wndulkd6hm")
 class_name Action
 extends RefCounted
 
@@ -260,7 +261,9 @@ func get_total_processing_time() -> Playhead:
 ## Returns how far into the action we are as a percent of the [member duration] that's been completed.
 func get_interpolation() -> float:
 	if duration.is_zero():
-		return 0.0
+		# Since a duration of zero means we're instantly at the end of the action,
+		# it is appropriate to indicate as much via the interpolation value
+		return 1.0
 	
 	_time_passed.sub(delay, _interpolation_time_passed)
 	

@@ -152,9 +152,9 @@ func clamp(min: Playhead, max: Playhead, in_place: Playhead = null) -> Playhead:
 	
 	result.assign(self)
 	
-	if result.less_than(min):
+	if min and result.less_than(min):
 		result.assign(min)
-	elif result.greater_than(max):
+	elif max and result.greater_than(max):
 		result.assign(max)
 	
 	return result
@@ -168,7 +168,7 @@ func min(other: Playhead, in_place: Playhead = null) -> Playhead:
 	
 	result.assign(self)
 	
-	if other.less_than(result):
+	if other and other.less_than(result):
 		result.assign(other)
 	
 	return result
@@ -182,7 +182,7 @@ func max(other: Playhead, in_place: Playhead = null) -> Playhead:
 	
 	result.assign(self)
 	
-	if other.greater_than(result):
+	if other and other.greater_than(result):
 		result.assign(other)
 	
 	return result
@@ -201,13 +201,16 @@ func to_float() -> float:
 func add(other: Playhead, in_place: Playhead = null) -> Playhead:
 	var result := in_place if in_place else Playhead.new()
 	
-	var whole_ab := _seconds_whole + other._seconds_whole
-	var fraction_a := _seconds_fraction
-	var fraction_b := other._seconds_fraction
-	
-	result._seconds_whole = whole_ab
-	result._seconds_fraction = fraction_a
-	result.move(fraction_b)
+	if other:
+		var whole_ab := _seconds_whole + other._seconds_whole
+		var fraction_a := _seconds_fraction
+		var fraction_b := other._seconds_fraction
+		
+		result._seconds_whole = whole_ab
+		result._seconds_fraction = fraction_a
+		result.move(fraction_b)
+	else:
+		result.assign(self)
 	
 	return result
 
@@ -216,18 +219,22 @@ func add(other: Playhead, in_place: Playhead = null) -> Playhead:
 ## the calculation will be assigned to that playhead and returned via that playhead
 ## instead of allocating a new one.
 func sub(other: Playhead, in_place: Playhead = null) -> Playhead:
-	var this_greater := greater_than(other)
-	var a := self if this_greater else other
-	var b := other if this_greater else self
 	var result := in_place if in_place else Playhead.new()
 	
-	var whole_ab := a._seconds_whole - b._seconds_whole
-	var fraction_a := a._seconds_fraction
-	var fraction_b := b._seconds_fraction
-	
-	result._seconds_whole = whole_ab
-	result._seconds_fraction = fraction_a
-	result.move(-fraction_b)
+	if other:
+		var this_greater := greater_than(other)
+		var a := self if this_greater else other
+		var b := other if this_greater else self
+		
+		var whole_ab := a._seconds_whole - b._seconds_whole
+		var fraction_a := a._seconds_fraction
+		var fraction_b := b._seconds_fraction
+		
+		result._seconds_whole = whole_ab
+		result._seconds_fraction = fraction_a
+		result.move(-fraction_b)
+	else:
+		result.assign(self)
 	
 	return result
 
@@ -241,26 +248,36 @@ func assign(other: Playhead) -> void:
 
 ## Returns whether this playhead shares the same position in time with the [param other] playhead.
 func equals(other: Playhead) -> bool:
-	return _seconds_whole == other._seconds_whole and _seconds_fraction == other._seconds_fraction
+	if other:
+		return other == self or (_seconds_whole == other._seconds_whole and _seconds_fraction == other._seconds_fraction)
+	return false
 
 ## Returns whether this playhead is further ahead in time than the [param other] playhead.
 func greater_than(other: Playhead) -> bool:
-	return _seconds_whole > other._seconds_whole or \
-		  (_seconds_whole == other._seconds_whole and _seconds_fraction > other._seconds_fraction)
+	if other:
+		return _seconds_whole > other._seconds_whole or \
+			  (_seconds_whole == other._seconds_whole and _seconds_fraction > other._seconds_fraction)
+	return false
 
 ## Returns whether this playhead shares the same position in time with or
 ## is further ahead in time than the [param other] playhead.
 func greater_than_or_equals(other: Playhead) -> bool:
-	return equals(other) or greater_than(other)
+	if other:
+		return equals(other) or greater_than(other)
+	return false
 
 ## Returns whether this playhead is further behind in time than the [param other] playhead.
 func less_than(other: Playhead) -> bool:
-	return not greater_than_or_equals(other)
+	if other:
+		return not greater_than_or_equals(other)
+	return false
 
 ## Returns whether this playhead shares the same position in time with or
 ## is further behind in time than the [param other] playhead.
 func less_than_or_equals(other: Playhead) -> bool:
-	return not greater_than(other)
+	if other:
+		return not greater_than(other)
+	return false
 
 ## Returns whether this playhead is at 0.0 seconds, i.e. the beginning.
 func is_zero() -> bool:

@@ -25,7 +25,7 @@ extends IndefiniteAction
 
 var self_bind := false
 
-func binds_self(should_bind := false) -> Condition:
+func binds_self(should_bind: bool) -> Condition:
 	self_bind = should_bind
 	return self
 
