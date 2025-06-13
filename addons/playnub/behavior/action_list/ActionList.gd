@@ -42,7 +42,7 @@ var delta_multiplier := 1.0:
 ## Whether [member Engine.time_scale] affects the speed of the action list.
 var ignore_engine_time_scale := false
 
-## Whether to enforce actions that added to the list to match the reversed state of the list.[br][br]
+## Whether actions that are added to the list should match the reversed state of the list.[br][br]
 ## When [code]true[/code], functions starting with [code]push_*[/code], [code]insert_*[/code],
 ## [code]pop_*[/code], and [code]remove_*[/code] will perform their operations with respect to the order of the list when not reversed.[br]
 ## Also, all actions' states of reversal are [b]guaranteed[/b] to be synchronized with the list's state of reversal.[br]
@@ -74,16 +74,17 @@ var _actions: Array[Action] = []
 
 # The tags of actions that are currently being blocked each frame.
 var _blocked_groups := Bitset.new()
-# Actions that have already been processed this frame and the step they were executed at.
-# Useful if the list is changed mid-processing.
-var _processed_actions: Dictionary[Action, int] = {}
+# Actions that have already been processed this frame. Useful if the list is changed mid-processing.
+var _processed_actions := Bitset.new()
 # The delta time given to us, adjusted by different scales.
 var _delta := 0.0
 # Whether the action list is reversed.
 var _reversed := false
 # The total amount of time that it takes to process the whole list. Cached for performance,
 # updated only when a change occurs.
-var _cached_total_processing_time := 0.0
+var _cached_total_processing_time := Playhead.new()
+# The number of indefinite actions in this list. Useful for calculating total duration of the action list.
+var _num_indef_actions := 0
 
 # Internal flag to detect when a change was made to the action list. Useful for when this occurs mid-processing.
 var _dirty := false
@@ -94,7 +95,7 @@ func update(delta: float) -> void:
 	var execution_index := 0
 	_delta = delta
 	
-	# Acknowledge changes from a previous call, if there was one
+	# Acknowledge any changes made to the action list
 	_dirty = false
 	# Remove all blocks for this frame
 	_blocked_groups.clear()
@@ -105,15 +106,17 @@ func update(delta: float) -> void:
 	while list_index < _actions.size():
 		var action := _actions[list_index]
 		
-		# If this action wasn't already processed this frame or is not done executing...
-		if not _processed_actions.has(action):
+		# If this action wasn't already processed this frame...
+		if not _processed_actions.get_bit(list_index):
 			# Process the action if it isn't in a group that's being blocked
 			if not action.participating_groups.any_bits_from(_blocked_groups):
+				if not action.done():
+					execution_index += 1
+				
 				action.process(_get_adjusted_delta(), execution_index, list_index)
 			
 			# Mark this action as having been processed for this frame
-			_processed_actions[action] = execution_index
-			execution_index += 1
+			_processed_actions.raise_bit(list_index)
 			
 			if not action.done():
 				# Add the groups the action is blocking to the block list, if it has any
@@ -122,6 +125,8 @@ func update(delta: float) -> void:
 			# If the state of the action list has changed mid-processing,
 			# restart to account for the changes
 			if _dirty:
+				# Acknowledge the changes made to the action list
+				_dirty = false
 				# Restart the loop (-1 since list_index will increase to 0 at the end of the loop)
 				list_index = -1
 		
@@ -159,12 +164,13 @@ func is_empty_processable() -> bool:
 	return true
 
 ## Returns the total amount of time this action list processes for, in seconds.
-func get_total_processing_time() -> float:
-	if _dirty:
+func get_total_processing_time() -> Playhead:
+	if _dirty or _num_indef_actions > 0:
 		# Retrieve which actions are blocked and which groups they're blocked in
 		
 		var temp_blocking_groups := Bitset.new()
 		var actions_blocked := Bitset.new()
+		var num_groups := get_group_count()
 		
 		for index: int in _actions.size():
 			var action := _actions[index]
@@ -174,29 +180,59 @@ func get_total_processing_time() -> float:
 			actions_blocked.set_bit(index, blocked)
 			action.blocking_groups.merge_onto(temp_blocking_groups)
 		
-		var group_times := PackedFloat64Array()
-		group_times.resize(temp_blocking_groups.size())
+		# Get the total execution times of each group
 		
-		# Get the total execution times of the blocked groups
-		# and the longest execution time of non-blocked actions
+		var group_times: Array[Playhead] = []
+		group_times.resize(num_groups)
+		
+		for i: int in group_times.size():
+			group_times[i] = Playhead.new()
+		
+		var last_known_blocking_times: Array[Playhead] = []
+		last_known_blocking_times.resize(num_groups)
+		
+		for i: int in last_known_blocking_times.size():
+			last_known_blocking_times[i] = Playhead.new()
 		
 		for index: int in _actions.size():
 			var action := _actions[index]
 			
 			for group_index: int in action.participating_groups.size():
+				# If the action is being blocked by this group...
 				if temp_blocking_groups.get_bit(group_index):
-					group_times[group_index] += action.get_total_processing_time()
+					# Determine which is longer: the current amount of time tracked by the group
+					# (which comes from both blocked and non-blocked actions) or the amount
+					# of time that would be accumulated by tracking only the blocked actions' time
+					group_times[group_index].max(last_known_blocking_times[group_index].add(action.get_total_processing_time()), group_times[group_index])
+					
+					# If this action is also blocking the group, accumulate that time for the next time
+					# an action in the same group appears
+					if action.blocking_groups.get_bit(group_index):
+						last_known_blocking_times[group_index].add(action.get_total_processing_time(), last_known_blocking_times[group_index])
+					
+				# Otherwise, this action runs completely parallel to the group, so determine if the
+				# length of time of this action overshadows the group's blocking time
 				else:
-					group_times[group_index] = maxf(group_times[group_index], action.get_total_processing_time())
+					group_times[group_index].max(action.get_total_processing_time(), group_times[group_index])
 		
-		# Get the longest time out of the groups and the non-blocked actions
+		# Get the longest time out of the groups
 		
-		_cached_total_processing_time = 0.0
+		_cached_total_processing_time.reset()
 		
-		for time: float in group_times:
-			_cached_total_processing_time = maxf(_cached_total_processing_time, time)
+		for time: Playhead in group_times:
+			_cached_total_processing_time.max(time, _cached_total_processing_time)
 	
 	return _cached_total_processing_time
+
+## Returns the number of groups currently being used by the actions.
+func get_group_count() -> int:
+	var num_groups := 0
+	
+	for action: Action in _actions:
+		num_groups = maxi(num_groups, action.participating_groups.size())
+		num_groups = maxi(num_groups, action.blocking_groups.size())
+	
+	return num_groups
 
 ## Returns whether this action list is reversed.
 func is_reversed() -> bool:
@@ -212,6 +248,9 @@ func push_back(action: Action) -> void:
 		_actions.push_back(action)
 	
 	_dirty = true
+	
+	if action is IndefiniteAction:
+		_num_indef_actions += 1
 
 ## Adds multiple [Action]s from a [param list] to the end of the action list.
 func push_back_list(list: Array[Action]) -> void:
@@ -226,6 +265,10 @@ func push_back_list(list: Array[Action]) -> void:
 		_actions.reverse()
 	
 	_dirty = true
+	
+	for action: Action in list:
+		if action is IndefiniteAction:
+			_num_indef_actions += 1
 
 ## Adds an [param action] to the start of the action list.[br]
 ## [b]NOTE[/b]: See [method Array.push_front] for performance risks associated with this method.
@@ -238,6 +281,9 @@ func push_front(action: Action) -> void:
 		_actions.push_front(action)
 	
 	_dirty = true
+	
+	if action is IndefiniteAction:
+		_num_indef_actions += 1
 
 ## Adds multiple [Action]s from a [param list] to the start of the action list.[br]
 func push_front_list(list: Array[Action]) -> void:
@@ -253,6 +299,10 @@ func push_front_list(list: Array[Action]) -> void:
 	_actions = new_list
 	
 	_dirty = true
+	
+	for action: Action in list:
+		if action is IndefiniteAction:
+			_num_indef_actions += 1
 
 ## Inserts an [param action] at the given [param index] of the action list.
 ## If the [param index] is beyond the start or end of the list, it is treated
@@ -269,6 +319,9 @@ func insert(index: int, action: Action) -> void:
 		
 		_actions.insert(_actions.size() - 1 - index if _syncing_reversal() else index, action)
 		_dirty = true
+		
+		if action is IndefiniteAction:
+			_num_indef_actions += 1
 
 ## Inserts a [param list] of actions at the given [param index] of the action list.
 ## If the [param index] is beyond the start or end of the list, it is treated
@@ -292,10 +345,17 @@ func insert_list(index: int, list: Array[Action]) -> void:
 		_actions = new_list
 	
 		_dirty = true
+		
+		for action: Action in list:
+			if action is IndefiniteAction:
+				_num_indef_actions += 1
 
 ## Removes and returns the last action in the list, or [code]null[/code] if there are no actions.
 func pop_back() -> Action:
 	_dirty = true
+	
+	if _actions.size() > 0 and _actions.back() is IndefiniteAction:
+		_num_indef_actions -= 1
 	
 	if _syncing_reversal():
 		return _actions.pop_front() as Action
@@ -305,6 +365,9 @@ func pop_back() -> Action:
 func pop_front() -> Action:
 	_dirty = true
 	
+	if _actions.size() > 0 and _actions.front() is IndefiniteAction:
+		_num_indef_actions -= 1
+	
 	if _syncing_reversal():
 		return _actions.pop_back() as Action
 	return _actions.pop_front() as Action
@@ -313,6 +376,9 @@ func pop_front() -> Action:
 func pop_at(index: int) -> Action:
 	if index < 0 or index >= _actions.size():
 		return null
+	
+	if _actions[index] is IndefiniteAction:
+		_num_indef_actions -= 1
 	
 	_dirty = true
 	return _actions.pop_at(_actions.size() - 1 - index if _syncing_reversal() else index) as Action
@@ -329,6 +395,9 @@ func remove_front() -> void:
 func remove_at(index: int) -> void:
 	if index < 0 or index >= _actions.size():
 		return
+	
+	if _actions[index] is IndefiniteAction:
+		_num_indef_actions -= 1
 	
 	_actions.remove_at(_actions.size() - 1 - index if _syncing_reversal() else index)
 	_dirty = true
@@ -367,6 +436,7 @@ func remove_range(start: int, end: int) -> void:
 func clear_all() -> void:
 	_actions.clear()
 	_reversed = false
+	_num_indef_actions = 0
 	_dirty = true
 
 ## Clears only actions that are finished as indicated by [method Action.done].
@@ -375,6 +445,8 @@ func clear_finished() -> void:
 	# It is also faster since it's more likely there are fewer elements to move back an index
 	for index: int in range(_actions.size() - 1, -1, -1):
 		if _actions[index].done():
+			if _actions[index] is IndefiniteAction:
+				_num_indef_actions -= 1
 			_actions.remove_at(index)
 	
 	_dirty = true
@@ -442,13 +514,13 @@ func skip() -> void:
 			if action is IndefiniteAction:
 				action.process(_get_adjusted_delta(), execution_index, list_index)
 			else:
-				action.process(action.get_absolute_time_remaining(), execution_index, list_index)
+				action.process(action.get_absolute_time_remaining().to_float(), execution_index, list_index)
 			
 			# Force action to finish processing
 			action.finish()
 			
 			# Mark this action as having been processed for this frame
-			_processed_actions[action] = execution_index
+			_processed_actions.raise_bit(list_index)
 			execution_index += 1
 		
 		list_index += 1
@@ -462,7 +534,7 @@ func _syncing_reversal() -> bool:
 	return _reversed and reversal_state_synchronized
 
 func _prepare_fresh_action(action: Action) -> void:
-	if _syncing_reversal():
+	if _syncing_reversal() and action.is_reversed() != _reversed:
 		action.reverse()
 
 func _prepare_fresh_list(list: Array[Action], autoreverse: bool) -> void:
@@ -471,4 +543,5 @@ func _prepare_fresh_list(list: Array[Action], autoreverse: bool) -> void:
 			list.reverse()
 		
 		for action: Action in list:
-			action.reverse()
+			if action.is_reversed() != _reversed:
+				action.reverse()

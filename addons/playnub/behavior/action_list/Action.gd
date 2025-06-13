@@ -25,17 +25,17 @@ extends RefCounted
 
 ## Performs logic grouped as a singular unit.
 ##
-## TODO
+## Grouping logic in software development, let alone game development, is a
+## non-trivial task. A lot of logic is also shared between different elements
+## that otherwise are nothing alike. The [Action] allows for code to be separated
+## into individual tasks for simplicity, reusability, and flexibility in game logic,
+## UI logic, and more.
 
 ## Time in seconds this action lasts.
-var duration := 0.0:
-	set(value):
-		duration = maxf(0.0, value)
+var duration := Playhead.new()
 
 ## Time in seconds before this action starts.
-var delay := 0.0:
-	set(value):
-		delay = maxf(0.0, value)
+var delay := Playhead.new()
 
 ## The object to enact logic on.
 var target = null
@@ -48,7 +48,7 @@ var blocking_groups := Bitset.new()
 # The current delta time elasped.
 var _dt := 0.0
 # The amount of time that has elapsed. Starts at 0, ends at get_total_processing_time().
-var _time_passed := 0.0
+var _time_passed := Playhead.new()
 # The zero-based index of when this action is being executed relative to others
 # in the parent action list, i.e. this is the nth action to be executed.
 var _execution_index := 0
@@ -63,19 +63,31 @@ var _done := false
 # Whether this action counts down to 0.0 or up to get_total_processing_time().
 var _reversed := false
 
+# Various stats about the action, recorded in cached playheads for efficiency.
+# REMARK: Why store these in objects? For accurate time-tracking and automatic
+# limitations on the internal numbers to be positive only, which is useful when
+# imagining actions as keyframe and action lists as timelines, or for certain
+# actions like any IndefiniteAction.
+var _relative_time_passed := Playhead.new()
+var _relative_time_remaining := Playhead.new()
+var _absolute_time_passed := Playhead.new()
+var _absolute_time_remaining := Playhead.new()
+var _total_processing_time := Playhead.new()
+var _interpolation_time_passed := Playhead.new()
+
 ## Sets the object to act upon.
 func targets(_target) -> Action:
 	target = _target
 	return self
 
-## Sets the duration of this action.
-func lasts(_duration_sec: float = 0.0) -> Action:
-	duration = _duration_sec
+## Sets the duration of this action in seconds.
+func lasts(_duration_sec: Playhead = null) -> Action:
+	duration.assign(_duration_sec)
 	return self
 
-## Sets the delay of this action.
-func after(_delay_sec: float = 0.0) -> Action:
-	delay = _delay_sec
+## Sets the delay of this action in seconds.
+func after(_delay_sec: Playhead = null) -> Action:
+	delay.assign(_delay_sec)
 	return self
 
 ## Sets the groups that this action belongs to.[br]
@@ -128,7 +140,7 @@ func process(delta: float, execution_index: int, list_index: int) -> void:
 		return
 	
 	_dt = delta
-	_time_passed += get_delta_time()
+	_time_passed.move(get_delta_time())
 	_execution_index = execution_index
 	_list_index = list_index
 	
@@ -173,12 +185,12 @@ func entered() -> bool:
 ## Whether the action has finished execution.
 func done() -> bool:
 	return (_done or
-		(_reversed and _time_passed <= 0.0) or
-		(not _reversed and _time_passed >= get_total_processing_time()))
+		(_reversed and _time_passed.is_zero()) or
+		(not _reversed and _time_passed.greater_than_or_equals(get_total_processing_time())))
 
 ## Whether this action is being delayed.
 func delayed() -> bool:
-	return _time_passed < delay
+	return _time_passed.less_than(delay)
 
 ## Prematurely finishes the action.
 func finish() -> void:
@@ -191,9 +203,9 @@ func restart() -> void:
 	_done = false
 	
 	if _reversed:
-		_time_passed = get_total_processing_time()
+		_time_passed.assign(get_total_processing_time())
 	else:
-		_time_passed = 0.0
+		_time_passed.reset()
 
 ## Toggles the direction of time that this action is processed in.
 func reverse() -> void:
@@ -204,61 +216,68 @@ func is_reversed() -> bool:
 	return _reversed
 
 ## Returns how many seconds have passed since the action was entered.
-func get_relative_time_passed() -> float:
-	var result := clampf(_time_passed - delay, 0.0, duration)
+func get_relative_time_passed() -> Playhead:
+	_time_passed.sub(delay, _relative_time_passed).clamp(Playhead.zero(), duration, _relative_time_passed)
 	
 	if is_reversed():
-		result = duration - result
+		duration.sub(_relative_time_passed, _relative_time_passed)
 	
-	return result
+	return _relative_time_passed
 
 ## Returns how many seconds are left to process relative to the [member duration].
-func get_relative_time_remaining() -> float:
-	var result := clampf(duration - get_relative_time_passed(), 0.0, duration)
+func get_relative_time_remaining() -> Playhead:
+	duration.sub(get_relative_time_passed(), _relative_time_remaining).clamp(Playhead.zero(), duration, _relative_time_remaining)
 	
 	if is_reversed():
-		result = duration - result
+		duration.sub(_relative_time_remaining, _relative_time_remaining)
 	
-	return result
+	return _relative_time_remaining
 
 ## Returns how many seconds have passed since the action was first processed.
-func get_absolute_time_passed() -> float:
-	var result := clampf(_time_passed, 0.0, get_total_processing_time())
+func get_absolute_time_passed() -> Playhead:
+	_time_passed.clamp(Playhead.zero(), get_total_processing_time(), _absolute_time_passed)
 	
 	if is_reversed():
-		result = get_total_processing_time() - result
+		_absolute_time_passed.sub(get_total_processing_time(), _absolute_time_passed)
 	
-	return result
+	return _absolute_time_passed
 
 ## Returns how many seconds are left to process relative to the total time,
 ## as seen in [method get_total_processing_time].
-func get_absolute_time_remaining() -> float:
+func get_absolute_time_remaining() -> Playhead:
 	if is_reversed():
-		return clampf(_time_passed, 0.0, get_total_processing_time())
-	return clampf(get_total_processing_time() - get_absolute_time_passed(), 0.0, get_total_processing_time())
+		_time_passed.clamp(Playhead.zero(), get_total_processing_time(), _absolute_time_remaining)
+	else:
+		get_total_processing_time().sub(get_absolute_time_passed(), _absolute_time_remaining).clamp(Playhead.zero(), get_total_processing_time(), _absolute_time_remaining)
+	
+	return _absolute_time_remaining
 
 ## Returns the total time this action is processed for, in seconds.
-func get_total_processing_time() -> float:
-	return duration + delay
+func get_total_processing_time() -> Playhead:
+	duration.add(delay, _total_processing_time)
+	return _total_processing_time
 
 ## Returns how far into the action we are as a percent of the [member duration] that's been completed.
 func get_interpolation() -> float:
-	if duration == 0.0:
+	if duration.is_zero():
 		return 0.0
-	return clampf(inverse_lerp(0.0, duration, _time_passed - delay), 0.0, 1.0)
+	
+	_time_passed.sub(delay, _interpolation_time_passed)
+	
+	return clampf(inverse_lerp(0.0, duration.to_float(), _interpolation_time_passed.to_float()), 0.0, 1.0)
 
 ## Returns the delta time for the current frame.
 func get_delta_time() -> float:
 	return _dt * (-1.0 if _reversed else 1.0)
 
 ## Returns the zero-based index of when this action is being executed relative to others
-## in the parent action list, i.e. this is the nth action to be executed.[br]
+## in the parent action list, i.e. this is the n-th action to be executed.[br]
 ## [b]NOTE[/b]: This is affected by reversal and blocking.
 func get_execution_index() -> int:
 	return _execution_index
 
 ## Returns the zero-based index of when this action is located relative to others
-## in the parent action list, i.e. this is the nth action in the list.[br]
+## in the parent action list, i.e. this is the n-th action in the list.[br]
 ## [b]NOTE[/b]: This is affected by reversal, but NOT by blocking.
 func get_list_index() -> int:
 	return _list_index

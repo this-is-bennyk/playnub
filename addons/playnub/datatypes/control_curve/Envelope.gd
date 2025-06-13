@@ -33,12 +33,12 @@ extends ControlCurve
 @export_group("Time")
 
 ## How long the envelope should last.
-@export_range(0.0001, 1.0, 0.0001, "hide_slider", "or_greater", "suffix:sec")
-var duration := 0.0001
+@export
+var duration: Playhead = null
 
 ## How long the envelope should wait before beginning.
-@export_range(0.0, 1.0, 0.0001, "hide_slider", "or_greater", "suffix:sec")
-var delay := 0.0
+@export
+var delay: Playhead = null
 
 ## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
 ## lasting [member duration] seconds after [member delay] seconds of delay. It assumes that

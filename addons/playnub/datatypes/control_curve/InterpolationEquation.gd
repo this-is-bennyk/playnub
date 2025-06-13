@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 @tool
-
 @icon("uid://8kwvflcr8tvg")
 class_name InterpolationEquation
 extends Resource

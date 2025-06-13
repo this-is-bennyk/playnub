@@ -32,30 +32,24 @@ extends Action
 ## that would normally be difficult to adjust to be much simpler.
 
 # Tracks the position in time, in seconds, this indefinite action has been processed at.
-var _timeline_position_whole := 0
-var _timeline_position_fraction := 0.0
+var _timeline_position: Playhead = null
 
 # Tracks the farthest position in time, in seconds, this indefinite action has been processed
 # when going forward. Think of it like the end of the timeline, and moves forward when a keyframe is added
 # (or in this case, when the position has gone beyond the end of the timeline).
-var _timeline_end_whole := 0
-var _timeline_end_fraction := 0.0
+var _timeline_end: Playhead = null
 
 ## See [method Action.lasts]. Overriden to not affect [member Action.duration].
-func lasts(_duration_sec: float = 0.0) -> Action:
+func lasts(_duration_sec: Playhead = null) -> Action:
 	return self
 
 ## Use [method indefinite_enter] instead.
 func enter() -> void:
 	# Only reset duration if starting from the beginning of forward progress
 	if not is_reversed():
-		duration = 0.0
-		
-		_timeline_position_whole = 0
-		_timeline_position_fraction = 0.0
-		
-		_timeline_end_whole = 0
-		_timeline_end_fraction = 0.0
+		duration.reset()
+		_timeline_position.reset()
+		_timeline_end.reset()
 	
 	indefinite_enter()
 
@@ -88,32 +82,9 @@ func indefinite_exit() -> void:
 
 ## See [method Action.done].
 func done() -> bool:
-	return _done or (_reversed and _time_passed <= 0.0)
+	return _done or (_reversed and _time_passed.is_zero())
 
 func _instrument_duration() -> void:
-	_timeline_position_fraction += get_delta_time()
-	
-	if is_reversed():
-		if _timeline_position_fraction <= 0.0:
-			_timeline_position_whole = maxi(_timeline_position_whole - fmod(_timeline_position_fraction, 1.0), 0)
-			_timeline_position_fraction = wrapf(_timeline_position_fraction, 0.0, 1.0)
-	else:
-		if _timeline_position_fraction >= 1.0:
-			_timeline_position_whole = maxi(_timeline_position_whole + fmod(_timeline_position_fraction, 1.0), 0)
-			_timeline_position_fraction = wrapf(_timeline_position_fraction, 0.0, 1.0)
-	
-	if \
-		_timeline_position_whole > _timeline_end_whole \
-		or \
-		(
-			_timeline_position_whole == _timeline_end_whole \
-			and _timeline_position_fraction > _timeline_end_fraction
-		) \
-	:
-		_timeline_end_whole = _timeline_position_whole
-		_timeline_end_fraction = _timeline_position_fraction
-	
-	# By manually producing higher-accuracy FPs and leaving addition at the last possible moment,
-	# the recorded duration should hopefully not drift too much from the expected amount of
-	# simulation time (in reasonable scenarios)
-	duration = float(_timeline_end_whole) + _timeline_end_fraction
+	_timeline_position.move(get_delta_time())
+	_timeline_end.max(_timeline_position, _timeline_end)
+	duration.assign(_timeline_end)

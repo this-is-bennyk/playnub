@@ -26,10 +26,10 @@ extends Action
 ## An action that does last for any amount of time.
 
 func _init() -> void:
-	duration = 0.0
+	duration.reset()
 
-func lasts(_duration_sec: float = 0.0) -> Action:
-	duration = 0.0
+func lasts(_duration_sec: Playhead = null) -> Action:
+	duration.reset()
 	return self
 
 func enter() -> void:
