@@ -528,8 +528,13 @@ func skip() -> void:
 	
 	_dirty = true
 
+# TODO: Now this is gonna be a doozy...
+# It's gonna be a combination of skip() and get_total_processing_time() with none
+# of the functionality shared between them
+# func seek(to: Playhead) -> void:
+
 func _get_adjusted_delta() -> float:
-	return _delta * delta_multiplier * (1.0 if ignore_engine_time_scale else Engine.time_scale)
+	return _delta * delta_multiplier * (1.0 / Engine.time_scale if ignore_engine_time_scale else Engine.time_scale)
 
 func _syncing_reversal() -> bool:
 	return _reversed and reversal_state_synchronized
