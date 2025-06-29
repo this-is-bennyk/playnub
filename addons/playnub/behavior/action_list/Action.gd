@@ -136,7 +136,7 @@ func blocks(indices: PackedInt64Array, override: bool = false) -> Action:
 ## the breakpoint will only trigger when the [param condition] returns [code]true[/code].
 ## Useful for debugging specific actions.[br][br]
 ## [b]NOTE[/b]: If [param condition] is not an empty [code]Callable()[/code], it [b]must[/b]
-## take no arguments (or have its parameters binded so that it can be called without passin
+## take no arguments (or have its parameters binded so that it can be called without passing
 ## arguments) and return a [bool] (example signature: [code]func() -> bool[/code]).
 func debug_breaks(breaks := true, condition := Callable()) -> Action:
 	_breakpoint_before_logic = breaks
