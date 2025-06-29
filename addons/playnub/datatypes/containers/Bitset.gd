@@ -31,6 +31,7 @@ const NUM_BITS := 8
 
 var _bits := PackedByteArray()
 var _last_known_bit := -1
+var _num_raised := 0
 
 func _init(_idxs_to_set := PackedInt64Array()) -> void:
 	if not _idxs_to_set.is_empty():
@@ -64,8 +65,12 @@ func raise_bit(idx: int) -> void:
 	if exceeds_known_groups:
 		_resize(idx / NUM_BITS + 1)
 	
+	var prev_bits := _bits[idx / NUM_BITS]
+	
 	_bits[idx / NUM_BITS] |= 1 << (idx % NUM_BITS)
 	_last_known_bit = maxi(_last_known_bit, idx)
+	
+	_num_raised += int(prev_bits == _bits[idx / NUM_BITS])
 
 ## Sets the bit at the index [param idx] to [code]0[/code].
 func lower_bit(idx: int) -> void:
@@ -74,8 +79,12 @@ func lower_bit(idx: int) -> void:
 	if exceeds_known_groups:
 		_resize(idx / NUM_BITS + 1)
 	
+	var prev_bits := _bits[idx / NUM_BITS]
+	
 	_bits[idx / NUM_BITS] &= ~(1 << (idx % NUM_BITS))
 	_last_known_bit = maxi(_last_known_bit, idx)
+	
+	_num_raised -= int(prev_bits == _bits[idx / NUM_BITS])
 
 ## Flips the bit at the index [param idx] from [code]0[/code] to [code]1[/code]
 ## or from [code]1[/code] to [code]0[/code].
@@ -107,6 +116,10 @@ func clear() -> void:
 ## Returns the number of bits.
 func size() -> int:
 	return _last_known_bit + 1
+
+## Returns the number of bits set to [code]true[/code].
+func num_raised() -> int:
+	return _num_raised
 
 func _resize(new_size: int) -> void:
 	_bits.resize(new_size)

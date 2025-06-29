@@ -35,7 +35,7 @@ extends Action
 # Tracks the farthest position in time, in seconds, this indefinite action has been processed
 # when going forward. Think of it like the end of the timeline, and moves forward when a keyframe is added
 # (or in this case, when the position has gone beyond the end of the timeline).
-var _timeline_end: Playhead = null
+var _timeline_end := Playhead.new()
 
 ## Overrides [method Action.lasts] to not affect [member Action.duration].
 func lasts(_duration_sec: Playhead = null) -> Action:

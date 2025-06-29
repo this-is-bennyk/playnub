@@ -28,7 +28,7 @@ extends ModularityInterface
 ## 
 ## A component-like type that can be attached to any [Node] while still utilizing
 ## the benefits that come from Godot's scene system.[br]
-## Deriving from this type gives the following benefits:[br]
+## Deriving from this type gives the following benefits:[br][br]
 ## · Decoupling node access logic from [code]@export[/code], [code]$NodeName[/code],
 ## and [code]%NodeName[/code]; i.e. instead of this:
 ## 

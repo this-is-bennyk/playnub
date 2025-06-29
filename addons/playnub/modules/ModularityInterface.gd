@@ -44,9 +44,10 @@ enum UniquenessMode
 ## programmatically as opposed to using the designer variable [member Module.uniqueness_enabled].
 ## Override this function to enable it by copy and pasting this snippet:
 ## [codeblock]
+## ## See [method ModularityInterface.is_strongly_unique].
 ## func is_strongly_unique(super_level: int) -> bool:
 ##     if super_level == 0:
-##         return true # Replace with true if there should only be 1 of this type of module as a child to a parent module, false otherwise.
+##         return false # Replace with true if there should only be 1 of this type of module as a child to a parent module, false otherwise.
 ##     return super(super_level - 1)
 ## [/codeblock]
 ## [b]HACK[/b]: This is make sure that we can properly allow
@@ -58,6 +59,7 @@ func is_strongly_unique(super_level: int) -> bool:
 ## assuming [method has_strong_uniqueness] returns [code]true[/code].
 ## Override this function to enable it by copy and pasting this snippet:
 ## [codeblock]
+## ## See [method ModularityInterface.get_strong_uniqueness_mode].
 ## func get_strong_uniqueness_mode(super_level: int) -> UniquenessMode:
 ##     if super_level == 0:
 ##         return UniquenessMode.REPLACE_ONLY # Replace this with whichever mode you choose.

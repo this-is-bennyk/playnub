@@ -34,24 +34,45 @@ extends Action
 ## and dynamic as one might need to make a video game or other kind of sufficiently complex
 ## program. The [Interpolator] can interpolate [b]any[/b] value in the engine and in your game
 ## via the [Box] with any kind of motion via the [ControlCurve] or the [Envelope].
+## Usage:
+## [codeblock]
+## # Basic format:
+## Interpolator.new().controlled_by(...).targets(Box.new(...))
+## 
+## # With the Envelope:
+## var envelope := Envelope.new()
+## # ...
+## envelope.create_interpolator().targets(Box.new(...))
+## [/codeblock]
 
+## The curve that controls the motion of the value.
 var control_curve: ControlCurve = null
+## Whether the interpolation starts at whatever value is held in the
+## [member Action.target] at the start of this action or at the value
+## defined in [member ControlCurve.start].
 var relative := true
 
-func controlled_by(_control_curve: ControlCurve) -> Interpolator:
-	control_curve = _control_curve
+## Controls the motion of the value with the given [param curve].
+func controlled_by(curve: ControlCurve) -> Interpolator:
+	control_curve = curve
 	return self
 
+## Tells the interpolator to start with the value defined by the [member control_curve]'s
+## [member ControlCurve.start].
 func starts_absolute() -> Interpolator:
 	relative = false
 	return self
 
+## See [method Action.enter].
 func enter() -> void:
 	if relative:
 		control_curve.start = Box.new((target as Box).data)
 
+## Interpolates the value in the [member Action.target] as a [Box] with the
+## value found in [method get_current_value].
 func update() -> void:
 	(target as Box).data = get_current_value()
 
+## Gets the interpolated value in the range at the value [method Action.get_interpolation]. 
 func get_current_value() -> Variant:
 	return control_curve.at(get_interpolation())

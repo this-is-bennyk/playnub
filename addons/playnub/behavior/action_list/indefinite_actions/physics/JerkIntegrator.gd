@@ -20,32 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-@icon("uid://dx7jrq8bkskvj")
-class_name Envelope
-extends ControlCurve
+class_name JerkIntegrator
+extends IndefiniteAction
 
-## A control curve with a finite duration and delay.
-## 
-## Based on the music/design terms "envelope" and "ADSR" (Attack, Decay, Sustain,
-## Release), this gives the control curve a boundary of time to operate within,
-## and is best for hands-on design in most instances.
-
-@export_group("Time")
-
-## How long the envelope should last.
-@export
-var duration: Playhead = null
-
-## How long the envelope should wait before beginning.
-@export
-var delay: Playhead = null
-
-## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
-## lasting [member duration] seconds after [member delay] seconds of delay. It assumes that
-## at least the [member ControlCurve.end] is defined.
-func create_interpolator() -> Interpolator:
-	var interpolator := Interpolator.new().controlled_by(self)
-	
-	interpolator.lasts(duration).after(delay)
-	
-	return interpolator
+## TODO: Derives positional and rotational motion controlled by jerk (and other vars?).
