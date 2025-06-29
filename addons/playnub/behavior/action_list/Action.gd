@@ -46,7 +46,6 @@ var participating_groups := Bitset.new([0])
 ## The set of groups this action is blocking from executing before it is finished.
 var blocking_groups := Bitset.new()
 
-# The current delta time elasped.
 var _dt := 0.0
 # The amount of time that has elapsed. Starts at 0, ends at get_total_processing_time().
 var _time_passed := Playhead.new()
@@ -57,10 +56,10 @@ var _execution_index := 0
 # this is the nth action in the list.
 var _list_index := 0
 
-# Whether this action has already been entered.
 var _entered := false
-# Whether this action has already been finished.
 var _done := false
+var _breakpoint_before_logic := false
+var _breakpoint_condition := Callable()
 # Whether this action counts down to 0.0 or up to get_total_processing_time().
 var _reversed := false
 
@@ -132,6 +131,18 @@ func blocks(indices: PackedInt64Array, override: bool = false) -> Action:
 	
 	return self
 
+## Sets whether to hit a breakpoint before executing the logic of this action as
+## determined by [param breaks]. If [param condition] is not an empty [code]Callable()[/code],
+## the breakpoint will only trigger when the [param condition] returns [code]true[/code].
+## Useful for debugging specific actions.[br][br]
+## [b]NOTE[/b]: If [param condition] is not an empty [code]Callable()[/code], it [b]must[/b]
+## take no arguments (or have its parameters binded so that it can be called without passin
+## arguments) and return a [bool] (example signature: [code]func() -> bool[/code]).
+func debug_breaks(breaks := true, condition := Callable()) -> Action:
+	_breakpoint_before_logic = breaks
+	_breakpoint_condition = condition
+	return self
+
 ## Performs logic and increases the amount of time taken by this action by
 ## [param delta] seconds. Override [method enter], [method update], and/or [method exit]
 ## to customize the behavior of this action.
@@ -144,6 +155,10 @@ func process(delta: float, execution_index: int, list_index: int) -> void:
 	_time_passed.move(get_delta_time())
 	_execution_index = execution_index
 	_list_index = list_index
+	
+	if _breakpoint_before_logic and \
+	   ((not _breakpoint_condition.is_valid()) or _breakpoint_condition.call() as bool):
+		breakpoint
 	
 	if not delayed():
 		if not entered():
