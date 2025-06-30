@@ -20,45 +20,42 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-@icon("uid://icbbhjlyokr6")
-class_name FunctionCaller
-extends InstantAction
+class_name FunctionLooper
+extends IndefiniteAction
 
-## Calls a function one time via a [Callable] when this action is reached.
+## Calls a function via a [Callable] every time the update loop of this [Action] is reached.
 ## 
 ## Pass a [Callable] to [method Action.targets] to use this action:
 ## [codeblock]
 ## # Like this:
-## FunctionCaller.new().targets(func() -> void: do_logic())
+## FunctionLooper.new().targets(func() -> void: do_logic())
 ## # Or this:
-## FunctionCaller.new().targets(my_func)
+## FunctionLooper.new().targets(my_func)
 ## # Or this:
-## FunctionCaller.from(my_func)
+## FunctionLooper.from(my_func)
 ## [/codeblock]
 
 ## Whether to pass this action as the first argument to the given [Callable].
 var self_bind := false
 
 ## Sets [member self_bind].
-func binds_self(should_bind := false) -> FunctionCaller:
+func binds_self(should_bind := false) -> FunctionLooper:
 	self_bind = should_bind
 	return self
 
 ## Binds this action to the Callable if [member self_bind] is set to [code]true[/code].
-func enter() -> void:
-	super()
-	
+func indefinite_enter() -> void:
 	if self_bind:
 		target = (target as Callable).bind(self)
 
 ## Executes the [Callable] given by the [member Action.target].
-func update() -> void:
+func indefinite_update() -> void:
 	(target as Callable).call()
 
-## Returns a [FunctionCaller] with the given [param callable] and with the created
+## Returns a [FunctionLooper] with the given [param callable] and with the created
 ## action bound to its arguments, if [param binds_action] is set to [code]true[/code].
-static func from(callable: Callable, binds_action := false) -> FunctionCaller:
-	var result := FunctionCaller.new()
+static func from(callable: Callable, binds_action := false) -> FunctionLooper:
+	var result := FunctionLooper.new()
 	
 	result.binds_self(binds_action).targets(callable)
 	
