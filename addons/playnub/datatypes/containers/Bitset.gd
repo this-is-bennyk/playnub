@@ -70,7 +70,7 @@ func raise_bit(idx: int) -> void:
 	_bits[idx / NUM_BITS] |= 1 << (idx % NUM_BITS)
 	_last_known_bit = maxi(_last_known_bit, idx)
 	
-	_num_raised += int(prev_bits == _bits[idx / NUM_BITS])
+	_num_raised += int(prev_bits != _bits[idx / NUM_BITS])
 
 ## Sets the bit at the index [param idx] to [code]0[/code].
 func lower_bit(idx: int) -> void:
@@ -84,7 +84,7 @@ func lower_bit(idx: int) -> void:
 	_bits[idx / NUM_BITS] &= ~(1 << (idx % NUM_BITS))
 	_last_known_bit = maxi(_last_known_bit, idx)
 	
-	_num_raised -= int(prev_bits == _bits[idx / NUM_BITS])
+	_num_raised -= int(prev_bits != _bits[idx / NUM_BITS])
 
 ## Flips the bit at the index [param idx] from [code]0[/code] to [code]1[/code]
 ## or from [code]1[/code] to [code]0[/code].
