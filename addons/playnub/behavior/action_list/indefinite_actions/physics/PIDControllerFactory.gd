@@ -23,18 +23,9 @@
 @tool
 @icon("uid://cikyi3pb8dm5c")
 class_name PIDControllerFactory
-extends Resource
+extends ActionFactory
 
-## Derives continuous, dampened oscillating values for positional and rotational motion.
-## 
-## Organic and mechanical movement with continous variables is tough, even with [ControlCurve]s.
-## This object provides a way to interpolate continuous data towards a target point (from 1D to 4D)
-## with parameters for oscillation and dampening that can make procedural movement far easier.
-## The PID controller comes from traditional engineering control theory and control systems, but instead
-## of taking error out of a system, this system adds it in deliberately for game feel (source: @notanimposter's
-## comment in the tutorial).
-## 
-## @tutorial(t3ssel8r: Giving Personality to Procedural Animations using Math): https://www.youtube.com/watch?v=KPoeNZZ6H4s
+## Creates [PIDController]s based on editor-time designer-controlled values.
 
 ## How quickly the system oscillates. A value of [code]0[/code] means no oscillation at all.
 ## Larger values mean quicker oscillations.
@@ -95,14 +86,16 @@ var result_curve: Curve:
 		curve.min_value = 0.0
 		curve.max_value = 1.0
 		
-		var controller := create().starts_at(Box.new(0.0)).follows_position(Box.new(1.0))
+		var controller := create_action().starts_at(Box.new(0.0)).follows_position(Box.new(1.0))
 		controller.targets(Box.new(0.0))
 		
 		var x := 0.0
-		var idx_array: Array[int] = []
-		idx_array.assign(range(11))
+		var i := 0
 		
-		for i: int in idx_array:
+		# HACK: For some reason doing the array twice is faster
+		# then having one big loop and I don't remember why
+		
+		while i < 11:
 			controller.process(FAKE_DELTA, 0, 0)
 			var y := controller.target.data as float
 			
@@ -111,8 +104,11 @@ var result_curve: Curve:
 			curve.add_point(Vector2(x, y))
 			
 			x += 1.0 / 20.0
+			i += 1
 		
-		for i: int in idx_array:
+		i = 0
+		
+		while i < 11:
 			controller.process(FAKE_DELTA, 0, 0)
 			var y := controller.target.data as float
 			
@@ -121,8 +117,10 @@ var result_curve: Curve:
 			curve.add_point(Vector2(x, y))
 			
 			x += 1.0 / 20.0
+			i += 1
 		
 		return curve
 
-func create() -> PIDController:
+## Returns a [PIDController] that uses the system values from this factory.
+func create_action() -> PIDController:
 	return PIDController.new().from_factory(self)

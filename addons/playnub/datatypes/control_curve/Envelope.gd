@@ -43,8 +43,8 @@ var delay: Playhead = null
 ## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
 ## lasting [member duration] seconds after [member delay] seconds of delay. It assumes that
 ## at least the [member ControlCurve.end] is defined.
-func create_interpolator() -> Interpolator:
-	var interpolator := Interpolator.new().controlled_by(self)
+func create_action() -> Interpolator:
+	var interpolator := super()
 	
 	interpolator.lasts(duration).after(delay)
 	

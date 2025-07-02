@@ -22,7 +22,7 @@
 
 @icon("uid://cjtuc6fd1qgst")
 class_name ControlCurve
-extends Resource
+extends ActionFactory
 
 ## Defines an equation for interpolating data.
 ##
@@ -211,6 +211,11 @@ func reversed() -> ControlCurve:
 	start = end
 	end = temp
 	return self
+
+## Creates an [Interpolator] action controlled by this control curve.
+## It assumes that at least the [member end] is defined.
+func create_action() -> Interpolator:
+	return Interpolator.new().controlled_by(self)
 
 func _lerp(a: Variant, b: Variant, weight: float) -> Variant:
 	if a is Transform2D:

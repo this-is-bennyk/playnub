@@ -137,7 +137,12 @@ func blocks(indices: PackedInt64Array, override: bool = false) -> Action:
 ## Useful for debugging specific actions.[br][br]
 ## [b]NOTE[/b]: If [param condition] is not an empty [code]Callable()[/code], it [b]must[/b]
 ## take no arguments (or have its parameters binded so that it can be called without passing
-## arguments) and return a [bool] (example signature: [code]func() -> bool[/code]).
+## arguments) and return a [bool].[br]
+## Example signature:
+## [codeblock]
+## func() -> bool:
+##     # ...
+## [/codeblock]
 func debug_breaks(breaks := true, condition := Callable()) -> Action:
 	_breakpoint_before_logic = breaks
 	_breakpoint_condition = condition

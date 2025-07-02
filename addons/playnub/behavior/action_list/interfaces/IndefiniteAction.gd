@@ -30,7 +30,7 @@ extends Action
 ## end, are difficult to split into separate pieces, especially ones that can be manipulated
 ## with operations like event re-arrangement and reversal. Since the [IndefiniteAction]
 ## is part of the action list system, this capability is built-in, allowing logic
-## that would normally be difficult to adjust to be much simpler.
+## that would normally be difficult to manipulate and reuse to be much simpler.
 
 # Tracks the farthest position in time, in seconds, this indefinite action has been processed
 # when going forward. Think of it like the end of the timeline, and moves forward when a keyframe is added

@@ -28,7 +28,7 @@ extends IndefiniteAction
 ## Derives continuous, dampened oscillating values for positional and rotational motion.
 ## 
 ## Organic and mechanical movement with continous variables is tough, even with [ControlCurve]s.
-## This object provides a way to interpolate continuous data towards a target point (from 1D to 4D)
+## This action provides a way to interpolate continuous data towards a target point (from 1D to 4D)
 ## with parameters for oscillation and dampening that can make procedural movement far easier.
 ## The PID controller comes from traditional engineering control theory and control systems, but instead
 ## of taking error out of a system, this system adds it in deliberately for game feel (source: @notanimposter's
