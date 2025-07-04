@@ -44,6 +44,7 @@ The Playnub plugin is a collection of many general-purpose game development patt
   - Weighted randomness
   - Seed setting
   - Seed state recording
+- And more!
 
 ### Future Plans
 The following is a list of things that I would like to implement into this project, time permitting:
