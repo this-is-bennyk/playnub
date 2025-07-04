@@ -23,19 +23,21 @@ The Playnub plugin is a collection of many general-purpose game development patt
 
 ### Features
 
+- New Datatypes
+  - Box: pass a reference, not a copy, of nearly any value in your game or in the engine to any other function
+  - Box fillers: make your boxed values designer-accessible by exporting pre-defined (or custom) fillers with robust inspector tools
+  - Bitset: an array of booleans compressed into ints with bit manipulation logic
+  - Module: Turn your nodes into component-based systems
 - Telemetry
   - Record continuous variables with just a few function calls
   - Create multiple tables of data
   - CSV, SQL file, and SQLite database support
 - Behaviors
   - Action Lists: for creating discrete sequences of events in code
-- Interpolation Systems
+- Interpolation and Motion
   - Control Curves and Envelopes: For controlling precisely how a data point gets from A to B
   - PID Controller: For controlling how a point follows a target using a control system
-- New Datatypes
-  - Box: pass a reference, not a copy, of nearly any value in your game or in the engine to any other function
-  - Box fillers: make your boxed values designer-accessible by exporting pre-defined (or custom) fillers with robust inspector tools
-  - Bitset: an array of booleans compressed into ints with bit manipulation logic
+  - Knockback Effector: Give any rigid body a knockback force
 - Randomization
   - Fast normal distribution randomness
   - Complete and deck randomness
