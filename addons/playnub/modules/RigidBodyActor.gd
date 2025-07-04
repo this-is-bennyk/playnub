@@ -33,6 +33,15 @@ extends ActionProcessor
 var _state2D: PhysicsDirectBodyState2D = null
 var _state3D: PhysicsDirectBodyState3D = null
 
+## Returns the current [PhysicsDirectBodyState2D] of the underlying [RigidBody2D].
+func get_state_2D() -> PhysicsDirectBodyState2D:
+	return _state2D
+
+## Returns the current [PhysicsDirectBodyState3D] of the underlying [RigidBody3D]
+## or [PhysicalBone3D].
+func get_state_3D() -> PhysicsDirectBodyState3D:
+	return _state3D
+
 ## See [method ModularityInterface.get_strong_uniqueness_mode].
 func get_strong_uniqueness_mode(super_level: int) -> UniquenessMode:
 	if super_level == 0:

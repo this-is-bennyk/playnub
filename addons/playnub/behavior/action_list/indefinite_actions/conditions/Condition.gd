@@ -23,16 +23,31 @@
 class_name Condition
 extends IndefiniteAction
 
-var self_bind := false
+## Waits for a condition to be [code]true[/code], then finishes.
+## 
+## Useful for blocking a multitude of actions from executing before an
+## event occurs, like an input press or an in-game event.[br][br]
+## [b]NOTE[/b]: The [member Action.target] [b]must[/b] be a [Callable] that
+## returns a truthy or falsy value.[br]
+## Examples below:
+## [codeblock]
+## func() -> bool: #...
+## func() -> int: #...
+## func() -> Object: #... (null is falsy)
+## [/codeblock]
 
+var _self_bind := false
+
+## Sets whether the action should be passed as the first variable of the target
+## [Callable] as determined by [param should_bind].
 func binds_self(should_bind: bool) -> Condition:
-	self_bind = should_bind
+	_self_bind = should_bind
 	return self
 
-func enter() -> void:
-	if self_bind:
+func indefinite_enter() -> void:
+	if _self_bind:
 		target = (target as Callable).bind(self)
 
-func update() -> void:
+func indefinite_update() -> void:
 	if (target as Callable).call():
 		finish()

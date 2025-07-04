@@ -20,11 +20,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-class_name MousePressedCondition
-extends Condition
+class_name SignalAwaiter
+extends IndefiniteAction
 
-func _init() -> void:
-	target = _mouse_pressed
+## Waits for a [Signal] to emit, then finishes.
+## 
+## [b][u]CAUTION[/u]: This class's implementation requires Godot 4.5 with its
+## variadic argument implementation in GDScript. It will be finished when Godot 4.5
+## goes into a beta with a stable feature set.[/b][br][br]
+## Useful for creating sequences of events that occur based on events that
+## happen in-engine or in-game that emit signals.
+## 
+## @experimental
 
-func _mouse_pressed() -> bool:
-	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+#var _connect_flags := 0
+#var _end_condition := Callable()
+#var _binds_self_to_end_cond := false
+
+#func emission_deferred()
+#func emission_one_shot()
+#func emission_refcounted()
+#func depends_on(condition: Callable, binds_action := false)
+
+#func indefinite_enter() -> void:
+	#if _binds_self_to_end_cond:
+		#assert(_end_condition.is_valid(), "No condition Callable to bind this action to!")
+		#_end_condition = _end_condition.bind(self)
+	#(target as Signal).connect(_event_occurred)
+
+#func _event_occurred(...: Array) -> void:
+	#if (not _end_condition.is_valid()) or _end_condition.call():
+		#finish()
