@@ -48,6 +48,7 @@ func indefinite_update() -> void:
 	else:
 		state3D = rigidbody.get_state_3D()
 	
+	#region Counteract Collisions
 	var contact_count := state2D.get_contact_count() if state2D else state3D.get_contact_count()
 	
 	if _counteract_collisions:
@@ -64,7 +65,16 @@ func indefinite_update() -> void:
 				state3D.apply_central_impulse(inv_impulse * 2.0)
 			
 			contact_idx += 1
+	#endregion
 	
+	#region Calculate Jerks
 	#_calculate_jerks()
+	#endregion
+	
+	#region Apply Forces
 	#_apply_forces(state.step, state)
+	#endregion
+	
+	#region Damp Velocities
 	#_damp_velocities(state)
+	#endregion
