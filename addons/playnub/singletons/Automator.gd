@@ -30,6 +30,16 @@ enum Mode
 	, PLAYBACK
 }
 
+# var _records: Array[InputRecord]
+
 func _ready() -> void:
 	#if OS.get_cmdline_args()
 	var custom_args := OS.get_cmdline_user_args()
+
+# func _input(event: InputEvent) -> void:
+# if _records.empty(): return
+# for each record: if record.can_record(): record.add(event)
+
+# class InputRecord:
+# var inputs: Array[InputEvent]
+# var record_all := false
