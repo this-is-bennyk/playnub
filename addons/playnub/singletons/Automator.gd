@@ -23,13 +23,20 @@
 class_name Automator
 extends Node
 
-const _PROP_BLACKLIST: Array[StringName] = [
-	&"resource_local_to_scene",
-	&"resource_name",
-	&"script",
-]
-
-const _ARTIFICIAL_INPUT := &"artificial"
+## Records and plays back all inputs captured by the game.
+## 
+## One task normal to traditional software development, but foreign to game
+## development, is the idea of automated testing of game features and content.
+## The idea of doing so is especially inaccessible to independent developers.
+## The [Automator] provides an interface to recording a player's inputs and
+## playing them in order them such that their session is accurately recreated,
+## allowing for simpler bug replication, automated playthroughs for verification
+## and bug hunting, and even for other features such as in-game match recording.[br][br]
+## To record input for a given session, run your game and pass one of the following
+## command-line arguments: [code]--record-session[/code] or [code]++record-session[/code].[br][br]
+## To play back a session, pass one of the following command-line arguments:
+## [code]--playback-session="/your/path/here"[/code] or [code]++playback-session="/your/path/here"[/code].[br][br]
+## In editor, either of this commands can be passed in [b]Project Settings > Editor > Run > Main Run Args[/b].
 
 const _RECORD_SESSION_A := &"--record-session"
 const _RECORD_SESSION_B := &"++record-session"
@@ -61,6 +68,82 @@ var _session_list := ActionList.new()
 
 var _automation_session_str := ""
 
+## Returns whether the given [param event] should be parsed by game logic.[br]
+## For example:
+## [codeblock]
+## func _input(input: InputEvent) -> void:
+##     if PlaynubAutomator.event_ignored(event):
+##         return
+##     # Resume usual logic here.
+## [/codeblock]
+func event_ignored(event: InputEvent) -> bool:
+	return _mode == Mode.PLAYBACK and _session_record.event_ignored(event)
+
+## Returns an [int] from a variable with the name [param key] of the given [param event].[br]
+## Provides a simpler interface when using the automator in input logic. A general example
+## is shown below:
+## [codeblock]
+## # After checking PlaynubAutomator.event_ignored()...
+## if event is [intended_type] or event is InputEventFaux:
+##     var data := PlaynubAutomator.get_int_from(event, &"property_of_intended_type")
+## [/codeblock]
+func get_int_from(event: InputEvent, key: StringName) -> int:
+	if event is InputEventFaux:
+		return (event as InputEventFaux).get_int(key)
+	return event.get(key) as int
+
+## Returns a [float] from a variable with the name [param key] of the given [param event].[br]
+## Provides a simpler interface when using the automator in input logic. A general example
+## is shown below:
+## [codeblock]
+## # After checking PlaynubAutomator.event_ignored()...
+## if event is [intended_type] or event is InputEventFaux:
+##     var data := PlaynubAutomator.get_float_from(event, &"property_of_intended_type")
+## [/codeblock]
+func get_float_from(event: InputEvent, key: StringName) -> float:
+	if event is InputEventFaux:
+		return (event as InputEventFaux).get_float(key)
+	return event.get(key) as float
+
+## Returns a [bool] from a variable with the name [param key] of the given [param event].[br]
+## Provides a simpler interface when using the automator in input logic. A general example
+## is shown below:
+## [codeblock]
+## # After checking PlaynubAutomator.event_ignored()...
+## if event is [intended_type] or event is InputEventFaux:
+##     var data := PlaynubAutomator.get_int_from(event, &"property_of_intended_type")
+## [/codeblock]
+func get_bool_from(event: InputEvent, key: StringName) -> bool:
+	if event is InputEventFaux:
+		return (event as InputEventFaux).get_bool(key)
+	return event.get(key) as bool
+
+## Returns a [Vector2] from a variable with the name [param key] of the given [param event].[br]
+## Provides a simpler interface when using the automator in input logic. A general example
+## is shown below:
+## [codeblock]
+## # After checking PlaynubAutomator.event_ignored()...
+## if event is [intended_type] or event is InputEventFaux:
+##     var data := PlaynubAutomator.get_vec2_from(event, &"property_of_intended_type")
+## [/codeblock]
+func get_vec2_from(event: InputEvent, key: StringName) -> Vector2:
+	if event is InputEventFaux:
+		return (event as InputEventFaux).get_vec2(key)
+	return event.get(key) as Vector2
+
+## Returns a [StringName] from a variable with the name [param key] of the given [param event].[br]
+## Provides a simpler interface when using the automator in input logic. A general example
+## is shown below:
+## [codeblock]
+## # After checking PlaynubAutomator.event_ignored()...
+## if event is [intended_type] or event is InputEventFaux:
+##     var data := PlaynubAutomator.get_string_name_from(event, &"property_of_intended_type")
+## [/codeblock]
+func get_string_name_from(event: InputEvent, key: StringName) -> StringName:
+	if event is InputEventFaux:
+		return (event as InputEventFaux).get_string_name(key)
+	return event.get(key) as StringName
+
 func _ready() -> void:
 	var custom_args := PackedStringArray()
 	
@@ -69,13 +152,12 @@ func _ready() -> void:
 	else:
 		custom_args = OS.get_cmdline_user_args()
 	
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(false)
 	
 	for arg: String in custom_args:
-		# Only one can be active at a time
-		
-		var x := arg.begins_with(_PLAYBACK_SESSION_A)
-		
+		# Only one can be active at a time...
+		# ...either recording...
 		if arg == _RECORD_SESSION_A or arg == _RECORD_SESSION_B:
 			_mode = Mode.RECORDING
 			
@@ -94,6 +176,7 @@ func _ready() -> void:
 			_automation_session_str += _FILE_STR
 			break
 		
+		# ...or playing back.
 		elif arg.begins_with(_PLAYBACK_SESSION_A) or arg.begins_with(_PLAYBACK_SESSION_B):
 			var path := ""
 			
@@ -120,123 +203,9 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	var tick := Time.get_ticks_usec()
 	
-	match _mode:
-		Mode.RECORDING:
-			if _session_record.can_record():
-				_session_record.add(event, tick)
-			
-		Mode.PLAYBACK:
-			if event.get_meta(_ARTIFICIAL_INPUT, false):
-				get_tree().root.set_input_as_handled()
+	if _mode == Mode.RECORDING and event is not InputEventFaux:
+		_session_record.add(event, tick)
 
 func _process(delta: float) -> void:
 	if _mode == Mode.PLAYBACK:
 		_session_list.update(delta)
-
-class InputRecord:
-	var _inputs: Array[InputEvent] = []
-	var _input_times := PackedInt64Array()
-	var _action_whitelist: Dictionary[StringName, bool] = {}
-	var _read_only := false
-	var _start_time := Time.get_ticks_usec()
-	
-	func can_record() -> bool:
-		return not _read_only
-	
-	func whitelist(action: StringName) -> void:
-		_action_whitelist[action] = true
-	
-	func add(event: InputEvent, tick_usec: int) -> void:
-		if _read_only:
-			return
-		
-		if not _action_whitelist.is_empty():
-			var recording := false
-			
-			for action: StringName in _action_whitelist.keys():
-				if event.is_action(action):
-					recording = true
-					break
-			
-			if not recording:
-				return
-		
-		_inputs.push_back(event)
-		_input_times.push_back(tick_usec)
-	
-	func to_file(path: String) -> void:
-		var file := FileAccess.open_compressed(path, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
-		
-		if FileAccess.get_open_error() != OK:
-			push_error("Automator.InputRecord.to_file: Could not open ", path)
-			return
-		
-		var data: Array[Dictionary] = []
-		
-		for event: InputEvent in _inputs:
-			data.push_back(_to_safe_dict(event))
-		
-		file.store_64(_start_time)
-		file.store_var(_input_times, true)
-		file.store_var(data, true)
-	
-	func from_file(path: String) -> void:
-		var file := FileAccess.open_compressed(path, FileAccess.READ, FileAccess.COMPRESSION_ZSTD)
-		
-		if FileAccess.get_open_error() != OK:
-			push_error("Automator.InputRecord.to_file: Could not open ", path)
-			return
-		
-		var data: Array[Dictionary] = []
-		
-		_start_time = file.get_64()
-		_input_times = file.get_var(true)
-		data.assign(file.get_var(true))
-		
-		for dict: Dictionary in data:
-			_inputs.push_back(_from_user_dict(dict))
-			_inputs[_inputs.size() - 1].set_meta(_ARTIFICIAL_INPUT, true)
-	
-	func to_actions() -> Array[Action]:
-		var result: Array[Action] = []
-		
-		for index: int in _inputs.size():
-			var delay := Playhead.new()
-			var ticks_usec := _input_times[index] - _start_time
-			var seconds_whole := ticks_usec / 1_000_000
-			var seconds_fraction := float(ticks_usec % 1_000_000) / 1_000_000.0
-			
-			delay.set_precise(seconds_whole, seconds_fraction)
-			
-			result.push_back(
-				FunctionCaller.new()
-				.targets(Input.parse_input_event.bind(_inputs[index]))
-				.after(delay)
-			)
-		
-		return result
-	
-	func _to_safe_dict(event: InputEvent) -> Dictionary[StringName, Variant]:
-		var json_native := JSON.from_native(event, true) as Dictionary
-		var result: Dictionary[StringName, Variant] = {}
-		
-		result.assign(json_native)
-		
-		for property: StringName in _PROP_BLACKLIST:
-			var index = (result[&"props"] as Array).find(String(property))
-			
-			if index > -1:
-				(result[&"props"] as Array).remove_at(index)
-				(result[&"props"] as Array).remove_at(index)
-		
-		return result
-	
-	func _from_user_dict(dict: Dictionary[StringName, Variant]) -> InputEvent:
-		for property: StringName in _PROP_BLACKLIST:
-			var index = (dict[&"props"] as Array).find(String(property))
-			
-			if index > -1:
-				(dict[&"props"] as Array).remove_at(index)
-				(dict[&"props"] as Array).remove_at(index)
-		
-		return JSON.to_native(dict, true) as InputEvent
