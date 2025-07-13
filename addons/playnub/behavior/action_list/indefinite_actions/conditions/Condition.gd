@@ -28,7 +28,7 @@ extends IndefiniteAction
 ## Useful for blocking a multitude of actions from executing before an
 ## event occurs, like an input press or an in-game event.[br][br]
 ## [b]NOTE[/b]: The [member Action.target] [b]must[/b] be a [Callable] that
-## returns a truthy or falsy value.[br]
+## returns a truthy or falsey value.[br]
 ## Examples below:
 ## [codeblock]
 ## func() -> bool: #...

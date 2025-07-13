@@ -161,11 +161,11 @@ func process(delta: float, execution_index: int, list_index: int) -> void:
 	_execution_index = execution_index
 	_list_index = list_index
 	
-	if _breakpoint_before_logic and \
-	   ((not _breakpoint_condition.is_valid()) or _breakpoint_condition.call() as bool):
-		breakpoint
-	
 	if not delayed():
+		if _breakpoint_before_logic and \
+		   ((not _breakpoint_condition.is_valid()) or _breakpoint_condition.call() as bool):
+			breakpoint
+		
 		if not entered():
 			if is_reversed():
 				exit()

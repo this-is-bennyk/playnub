@@ -132,10 +132,22 @@ func reset() -> void:
 	_seconds_whole = 0
 	_seconds_fraction = 0.0
 
-## Sets the playhead to a position in time as given by [param time_seconds].
+## Sets the playhead to a position in time as given by [param seconds].
 func set_to(seconds: float) -> void:
 	reset()
 	move(seconds)
+
+## Sets the playhead to a position in time as given by [param whole] seconds and
+## a [param fraction] of a second.
+func set_precise(whole: int, fraction: float) -> void:
+	fraction = clampf(fraction, 0.0, 1.0)
+	
+	if fraction == 1.0:
+		whole += 1
+		fraction = 0.0
+	
+	_seconds_whole = whole
+	_seconds_fraction = fraction
 
 ## Scales the duration of time this playhead represents by a factor of [param scale].[br]
 ## [b]NOTE[/b]: Not accurate for huge lengths of time, as it uses [method to_float] to represent

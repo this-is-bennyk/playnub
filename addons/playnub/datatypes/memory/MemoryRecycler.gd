@@ -79,11 +79,11 @@ extends RefCounted
 const INVALID_INDEX := -1
 
 # A jump table of the indices of deleted elements, so we can recycle
-# previously removed buildings for cache coherency and prevention of invalidated IDs.
+# previously removed elements for cache coherency and prevention of invalidated IDs.
 # Each index represents either no next deleted element or the next deleted
 # element to recycle.
 var _deleted_jump_table := PackedInt64Array()
-# The index of the last deleted element. A value of [constant INVALID_INDEX]
+# The index of the last deleted element. A value of INVALID_INDEX
 # means there is no element to recycle.
 var _last_deleted := INVALID_INDEX
 # The index of the first deleted element. The first index deleted will have the invalid

@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 
 PlaynubTelemeter="*res://addons/playnub/singletons/Telemeter.gd"
 PlaynubRandomizer="*res://addons/playnub/singletons/Randomizer.gd"
+PlaynubAutomator="*res://addons/playnub/singletons/Automator.gd"
 
 [dotnet]
 
