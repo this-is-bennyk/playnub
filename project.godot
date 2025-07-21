@@ -24,6 +24,10 @@ PlaynubAutomator="*res://addons/playnub/singletons/Automator.gd"
 
 project/assembly_name="Playnub Plugin"
 
+[editor]
+
+run/main_run_args="--playback-session=\"C:\\Users\\thisi\\AppData\\Roaming\\Godot\\app_userdata\\Playnub Plugin\\Playnub\\Automation\\2025-07-13_H01_M25_S22\\Inputs.bin\""
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/playnub/plugin.cfg")

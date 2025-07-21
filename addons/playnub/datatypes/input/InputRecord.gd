@@ -121,6 +121,11 @@ func to_actions() -> Array[Action]:
 			.targets(Input.parse_input_event.bind(_inputs[index]))
 			.after(delay)
 		)
+		result.push_back(
+			FunctionCaller.new()
+			.targets(print.bind((_inputs[index] as InputEventFaux)._values))
+			.after(delay)
+		)
 	
 	return result
 
