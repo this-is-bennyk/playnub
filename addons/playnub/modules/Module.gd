@@ -271,6 +271,26 @@ func _create_module_list(script: Script) -> void:
 	set_meta(script.get_global_name(), empty)
 
 func _register() -> void:
+	# ----------------------------------------------------------------------------------------------
+	#region Register to global module database
+	# ----------------------------------------------------------------------------------------------
+	
+	PlaynubModuleDB.register(self, attached_script)
+	
+	var script_base := attached_script.get_base_script()
+	
+	while script_base and script_base != ModularityInterface:
+		PlaynubModuleDB.register(self, script_base)
+		script_base = script_base.get_base_script()
+	
+	# ----------------------------------------------------------------------------------------------
+	#endregion
+	# ----------------------------------------------------------------------------------------------
+	
+	# ----------------------------------------------------------------------------------------------
+	#region Register this module's types to parent metadata
+	# ----------------------------------------------------------------------------------------------
+	
 	if not has_parent_module():
 		return
 	
@@ -301,8 +321,32 @@ func _register() -> void:
 		
 		current_script = current_script.get_base_script()
 		super_level += 1
+	
+	# ----------------------------------------------------------------------------------------------
+	#endregion
+	# ----------------------------------------------------------------------------------------------
 
 func _unregister() -> void:
+	# ----------------------------------------------------------------------------------------------
+	#region Unregister from global module database
+	# ----------------------------------------------------------------------------------------------
+	
+	PlaynubModuleDB.unregister(self, attached_script)
+	
+	var script_base := attached_script.get_base_script()
+	
+	while script_base and script_base != ModularityInterface:
+		PlaynubModuleDB.unregister(self, script_base)
+		script_base = script_base.get_base_script()
+	
+	# ----------------------------------------------------------------------------------------------
+	#endregion
+	# ----------------------------------------------------------------------------------------------
+	
+	# ----------------------------------------------------------------------------------------------
+	#region Unregister this module's types from parent metadata
+	# ----------------------------------------------------------------------------------------------
+	
 	if not has_parent_module():
 		return
 	
@@ -319,6 +363,10 @@ func _unregister() -> void:
 		
 		current_script = current_script.get_base_script()
 		super_level += 1
+	
+	# ----------------------------------------------------------------------------------------------
+	#endregion
+	# ----------------------------------------------------------------------------------------------
 
 func _is_unique(super_level: int) -> bool:
 	# If this is the most derived class, account for the designer variable

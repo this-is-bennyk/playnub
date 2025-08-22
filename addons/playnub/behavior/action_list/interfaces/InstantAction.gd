@@ -42,10 +42,17 @@ func lasts(_duration_sec: Playhead = null) -> Action:
 	duration.reset()
 	return self
 
-## Forces the action to be over as soon as it's entered.
+## Forces the action to be over as soon as it begins processing.
 ## Use [method Action.update] to process your logic.
 func enter() -> void:
-	finish()
+	if not is_reversed():
+		finish()
+
+## Forces the action to be over as soon as it begins processing.
+## Use [method Action.update] to process your logic.
+func exit() -> void:
+	if is_reversed():
+		finish()
 
 ## Overrides [method Action.done] to only be done once the logic is executed.
 func done() -> bool:

@@ -314,11 +314,11 @@ func _get_transformed_weight(weight: float) -> float:
 		_:
 			assert(not
 				(
-					  (built_in_transition == Tween.TRANS_QUAD and built_in_easing != Tween.EASE_OUT)
+					  ((built_in_transition == Tween.TRANS_QUAD and built_in_easing != Tween.EASE_OUT)
 					or built_in_transition == Tween.TRANS_QUART
 					or built_in_transition == Tween.TRANS_QUINT
 					or built_in_transition == Tween.TRANS_EXPO
-					or (built_in_transition == Tween.TRANS_SPRING)
+					or (built_in_transition == Tween.TRANS_SPRING))
 					and weight < 0.0
 				)
 				,

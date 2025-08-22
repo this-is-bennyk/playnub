@@ -62,6 +62,17 @@ var blocks_own_groups := false
 @export
 var blocking_groups := PackedInt64Array()
 
+@export_group("Targeting")
+
+## The property this envelope is intended to manipulate.
+@export
+var intended_property := ""
+
+## Whether to start the created [Interpolator] relative to the current
+## targeted value or the value defined by [member ControlCurve.start].
+@export
+var starts_absolute := false
+
 ## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
 ## lasting [member duration] seconds after [member delay] seconds of delay. It assumes that
 ## at least the [member ControlCurve.end] is defined.
@@ -79,4 +90,17 @@ func create_action() -> Interpolator:
 		if blocking_groups and not blocking_groups.is_empty():
 			interpolator.blocks(blocking_groups)
 	
+	if starts_absolute:
+		interpolator.starts_absolute()
+	
 	return interpolator
+
+## Creates an [Interpolator] action controlled by the underlying [ControlCurve]
+## lasting [member duration] seconds after [member delay] seconds of delay,
+## controlling a property of the given [param object] as defined by
+## [member intended_property]. It assumes that at least the [member ControlCurve.end]
+## is defined.
+func create_action_for(object: Variant) -> Interpolator:
+	var action := create_action()
+	action.targets(Box.new(object, intended_property))
+	return action

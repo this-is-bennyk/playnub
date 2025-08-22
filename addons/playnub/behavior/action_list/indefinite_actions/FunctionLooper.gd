@@ -45,12 +45,19 @@ func binds_self(should_bind := false) -> FunctionLooper:
 
 ## Binds this action to the Callable if [member self_bind] is set to [code]true[/code].
 func indefinite_enter() -> void:
-	if self_bind:
-		target = (target as Callable).bind(self)
+	_bind()
 
 ## Executes the [Callable] given by the [member Action.target].
 func indefinite_update() -> void:
 	(target as Callable).call()
+
+## Binds this action to the Callable if [member self_bind] is set to [code]true[/code].
+func indefinite_exit() -> void:
+	_bind()
+
+func _bind() -> void:
+	if self_bind and (target as Callable).get_bound_arguments_count() < 1:
+		target = (target as Callable).bind(self)
 
 ## Returns a [FunctionLooper] with the given [param callable] and with the created
 ## action bound to its arguments, if [param binds_action] is set to [code]true[/code].

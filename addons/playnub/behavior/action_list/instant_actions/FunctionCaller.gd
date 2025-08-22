@@ -47,13 +47,20 @@ func binds_self(should_bind := false) -> FunctionCaller:
 ## Binds this action to the Callable if [member self_bind] is set to [code]true[/code].
 func enter() -> void:
 	super()
-	
-	if self_bind:
-		target = (target as Callable).bind(self)
+	_bind()
 
 ## Executes the [Callable] given by the [member Action.target].
 func update() -> void:
 	(target as Callable).call()
+
+## Binds this action to the Callable if [member self_bind] is set to [code]true[/code].
+func exit() -> void:
+	super()
+	_bind()
+
+func _bind() -> void:
+	if self_bind and (target as Callable).get_bound_arguments_count() < 1:
+		target = (target as Callable).bind(self)
 
 ## Returns a [FunctionCaller] with the given [param callable] and with the created
 ## action bound to its arguments, if [param binds_action] is set to [code]true[/code].

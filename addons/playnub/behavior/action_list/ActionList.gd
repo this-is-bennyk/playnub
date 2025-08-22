@@ -93,7 +93,7 @@ var _dirty := false
 ## Processes each action in order by progressing them by [param delta] times [member delta_multiplier] seconds.
 func update(delta: float) -> void:
 	var list_index := 0
-	var execution_index := 0
+	var execution_index := -1
 	_delta = delta
 	
 	# Acknowledge any changes made to the action list
@@ -432,6 +432,13 @@ func remove_range(start: int, end: int) -> void:
 		# It is also faster since it's more likely there are fewer elements to move back an index
 		for index: int in range(start if syncing_reversal else end - 1, end if syncing_reversal else start - 1, 1 if syncing_reversal else -1):
 			remove_at(index)
+
+## Erases the given [param action] from the action list, or does nothing if
+## this action list does not contain it.
+func erase(action: Action) -> void:
+	if action in _actions:
+		_actions.erase(action)
+		_dirty = true
 
 ## Clears the action list of any actions it may have.
 func clear_all() -> void:
