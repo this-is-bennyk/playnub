@@ -155,6 +155,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(false)
 	
+	# --playback-session="[AppData\Roaming]\Godot\app_userdata\Playnub Plugin\Playnub\Automation\2025-07-13_H01_M25_S22\Inputs.bin"
+	
 	for arg: String in custom_args:
 		# Only one can be active at a time...
 		# ...either recording...

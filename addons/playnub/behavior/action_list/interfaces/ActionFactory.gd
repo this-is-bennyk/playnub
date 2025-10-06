@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# @abstract
+@abstract
 class_name ActionFactory
 extends Resource
 
@@ -32,7 +32,6 @@ extends Resource
 ## as for use cases where logic is agnostic of the [Action] created by an
 ## instance of this resource.
 
-# @abstract
 ## Returns an action using the data of this resource.[br]
 ## Derived classes can return more specific actions via GDScript's ability for
 ## [url=https://en.wikipedia.org/wiki/Covariant_return_type]covariant return types[/url].[br]
@@ -41,5 +40,5 @@ extends Resource
 ## func create_action() -> Interpolator:
 ##     # ...
 ## [/codeblock]
-func create_action() -> Action:
-	return null
+@abstract
+func create_action() -> Action

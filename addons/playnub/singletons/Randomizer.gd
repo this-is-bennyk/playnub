@@ -87,8 +87,7 @@ func randf_range(from: float, to: float) -> float:
 	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
 	return result
 
-## Returns a random boolean statement with equal probability to return
-## [code]true[/code] or [code]false[/code].
+## Returns a random boolean statement with equal probability to return [code]true[/code] or [code]false[/code].
 func randb() -> bool:
 	return bool(self.randi() % 2)
 
@@ -102,7 +101,7 @@ func randfn_accurate(mean := 0.0, deviation := 1.0) -> float:
 	return result
 
 ## Returns a normally-distributed, pseudo-random floating-point number from the specified mean
-## and a standard deviation. This is also known as a Gaussian distribution.
+## and a standard deviation. This is also known as a Gaussian distribution.[br]
 ## [b]NOTE[/b]: This method uses the Central Limit Theorem, trading mathematical accuracy for speed.
 func randfn_fast(mean := 0.0, deviation := 1.0) -> float:
 	# Three psuedo-random numbers is enough for the CLT
@@ -112,17 +111,35 @@ func randfn_fast(mean := 0.0, deviation := 1.0) -> float:
 func pick_random(array: Array) -> Variant:
 	return array[self.randi_range(0, array.size() - 1)]
 
+## Returns a random index with non-uniform weights. Returns [code]-1[/code] if the array is empty.
+## Same as [method RandomNumberGenerator.rand_weighted], but handles the case of zero weights gracefully.
+func pick_weighted_index(weights: PackedFloat32Array) -> int:
+	if weights.is_empty():
+		return -1
+	
+	var selection := _rng.rand_weighted(weights)
+	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	return selection
+
 ## Returns a random value from the target [param array] based on weighted probabilities provided by [param weights].
 func pick_weighted(array: Array, weights: PackedFloat32Array) -> Variant:
 	assert(array.size() == weights.size(), "Mismatched array and weight sizes!")
-	var selection := _rng.rand_weighted(weights)
-	PlaynubTelemeter.update(RANDOMIZATION_DATA_TABLE)
+	
+	if array.is_empty():
+		return null
+	
+	var selection := pick_weighted_index(weights)
+	if selection == -1:
+		return null
+	
 	return array[selection]
 
-## Returns a random value from the target [param array]. However, unlike [method pick_random] or
-## [method pick_weighted], this function guarantees that no element is picked multiple times in a row.
+## Returns a random index of [param array]. However, unlike [method pick_random] or
+## [method pick_weighted_index], this function guarantees that no element is picked multiple times in a row.
 ## Useful for more believable random events (ex. drawing cards from a deck).
-func deck_random(array: Array) -> Variant:
+func deck_random_index(array: Array) -> int:
+	assert(not array.is_empty(), "Array must not be empty!")
+	
 	if not array in _deck_indices:
 		var empty: Array[int] = []
 		_deck_indices[array] = empty
@@ -138,11 +155,52 @@ func deck_random(array: Array) -> Variant:
 		_deck_indices[array] = new_indices
 		indices = new_indices
 	
-	return array[indices.pop_back()]
+	var index := indices[indices.size() - 1]
+	indices.pop_back()
+	
+	return index
+
+## Returns a random value from the target [param array]. However, unlike [method pick_random] or
+## [method pick_weighted], this function guarantees that no element is picked multiple times in a row.
+## Useful for more believable random events (ex. drawing cards from a deck).
+func deck_random(array: Array) -> Variant:
+	return array[deck_random_index(array)]
+
+## Clears the deck-random state of the target [param array], if it had one.
+func clear_deck_random(array: Array) -> void:
+	_deck_indices.erase(array)
 
 ## Shuffles all elements of the array in a random order, like [method Array.shuffle].
 func shuffle(array: Array) -> void:
 	_perform_fisher_yates_on_generics(array)
+
+## Given two dependent states A and B of a system, and that the system is currently is in state A,
+## returns whether the next state of the system should remain A ([code]true[/code]) or change to B ([code]false[/code]).[br][br]
+## [param prob_same_state] is a probability in the range [code][0, 1][/code], i.e. from [code]0.0[/code] to [code]1.0[/code],
+## or from 0% to 100%, indicating how likely it is for the state to remain as A.[br][br]
+## Useful for making [b]Markov chains[/b] for predictive behavior (ex. text auto-complete, NPCs that analyze the player's moves, etc.).
+func eval_markov_link(prob_same_state: float) -> bool:
+	assert(prob_same_state >= 0.0 and prob_same_state <= 1.0, "Invalid probability!")
+	return self.randf() <= prob_same_state
+
+## Given the state of a system and a [b]utility curve[/b] (a curve representing how likely it is that
+## that the system will transition to a different state given the current state), return whether the
+## state should change.[br][br]
+## [param state] represents the current state of the system.
+## [param utility_curve] is a [Curve] with a user-defined domain and a range of [code][0, 1][/code], i.e. from [code]0.0[/code] to [code]1.0[/code],
+## representing the probability range from 0% to 100% chance of transitioning to a different state.
+## [param baked] determines whether to use [method Curve.sample_baked] or [method Curve.sample].[br][br]
+## Useful for making behaviors with "personalities" (ex. how likely to flee based on health, how likely to reload based on bullets left, etc.).
+func eval_utility_curve(state: float, utility_curve: Curve, baked := true) -> bool:
+	assert(utility_curve.min_value == 0.0 and utility_curve.max_value == 1.0, "Invalid probability range!")
+	
+	var sample := utility_curve.sample_baked(state) if baked else utility_curve.sample(state)
+	
+	if sample > 1.0:
+		return true
+	if sample < 0.0:
+		return false
+	return self.randf() <= sample
 
 # The RNG object doesn't come with a shuffle function
 func _perform_fisher_yates_on_generics(elements: Array) -> void:

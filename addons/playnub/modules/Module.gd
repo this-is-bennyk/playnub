@@ -53,7 +53,7 @@ extends ModularityInterface
 ##         break
 ## # ...
 ## [/codeblock]
-## 
+## [br]
 ## You can do this:
 ## 
 ## [codeblock]
@@ -80,8 +80,9 @@ extends ModularityInterface
 ## 
 ## # ...
 ## [/codeblock]
-## 
+## [br]
 ## · Querying modules of a certain type either locally or globally:
+## 
 ## [codeblock]
 ## # For getting all the children of a certain type relative to a parent module:
 ## var weapons := get_all_submodules(Weapon)
@@ -89,10 +90,14 @@ extends ModularityInterface
 ## # For getting all the modules of a certain type in the scene tree:
 ## var all_of_my_type := get_tree().get_nodes_in_group(script_type)
 ## var all_weapons := get_tree().get_nodes_in_group(Module.name_of(Weapon))
+## # Or:
+## var all_weapons := PlaynubModuleDB.retrieve_all(Weapon)
+## 
 ## get_tree().call_group(Module.name_of(Weapon), Weapon.fire.get_method(), 1)
 ## [/codeblock]
-## 
+## [br]
 ## · Stronger type safety when querying modules of a certain type:
+## 
 ## [codeblock]
 ## # If this class_name gets changed from...
 ## class_name Hero extends Module
@@ -100,14 +105,17 @@ extends ModularityInterface
 ## # ...to:
 ## class_name PartyMember extends Module
 ## 
-## # ...then these throw errors, so it's easier to identify and fix them.
+## # ...then the below lines of code throw errors, so it's easier to identify and fix them.
+## 
 ## var hero := get_submodule(Hero) as Hero
-## hero.revive()
 ## 
 ## var all_heros := get_tree().get_nodes_in_group(Module.name_of(Hero))
+## # Or:
+## var all_heros := PlaynubModuleDB.retrieve_all(Hero)
+## 
 ## get_tree().call_group(Module.name_of(Hero), Hero.heal.get_method(), 10)
 ## [/codeblock]
-## 
+## [br]
 ## [b]NOTE[/b]: Deriving from this class [b]requires[/b] the derived classes to have
 ## [code]class_name[/code]s.
 
@@ -229,7 +237,7 @@ func has_submodule_type(script: Script) -> bool:
 ## Returns whether this module has a parent module. Be sure to check this
 ## before accessing the [member parent].
 func has_parent_module() -> bool:
-	return (not get_parent()) or get_parent() is Module
+	return get_parent() and get_parent() is Module
 
 ## See [method ModularityInterface.is_strongly_unique].
 func is_strongly_unique(super_level: int) -> bool:
@@ -275,12 +283,12 @@ func _register() -> void:
 	#region Register to global module database
 	# ----------------------------------------------------------------------------------------------
 	
-	PlaynubModuleDB.register(self, attached_script)
+	PlaynubModuleDB._register(self, attached_script)
 	
 	var script_base := attached_script.get_base_script()
 	
 	while script_base and script_base != ModularityInterface:
-		PlaynubModuleDB.register(self, script_base)
+		PlaynubModuleDB._register(self, script_base)
 		script_base = script_base.get_base_script()
 	
 	# ----------------------------------------------------------------------------------------------
@@ -331,12 +339,12 @@ func _unregister() -> void:
 	#region Unregister from global module database
 	# ----------------------------------------------------------------------------------------------
 	
-	PlaynubModuleDB.unregister(self, attached_script)
+	PlaynubModuleDB._unregister(self, attached_script)
 	
 	var script_base := attached_script.get_base_script()
 	
 	while script_base and script_base != ModularityInterface:
-		PlaynubModuleDB.unregister(self, script_base)
+		PlaynubModuleDB._unregister(self, script_base)
 		script_base = script_base.get_base_script()
 	
 	# ----------------------------------------------------------------------------------------------

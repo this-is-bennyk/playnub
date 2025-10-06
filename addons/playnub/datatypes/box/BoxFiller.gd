@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 @icon("uid://csqaeo0wvqsgd")
+@abstract
 class_name BoxFiller
 extends Resource
 
@@ -60,5 +61,5 @@ func _init() -> void:
 ## Expose customer parameters with exported variables, then assign them to
 ## [member data] and [member key] as you see fit. See [method Box.rewrite]
 ## for more information on how to set up those two member variables.
-func setup() -> void:
-	assert(false, "Abstract function!")
+@abstract
+func setup() -> void
