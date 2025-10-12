@@ -20,52 +20,63 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+@tool
 class_name Spliner2D
-extends Resource
+extends Spliner
 
-enum CubicBezierKinkResolution
-{
-	NEAREST_NEIGHBOR,
-	FARTHEST_NEIGHBOR,
-	EQUIDISTANT,
-}
-
-@export var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL
-
-@export var closed := false
-
-@export_group("Rationalization", "rationalization_")
-
-@export var rationalization_enabled := false
-# Bound is (-0.1, inf) i.e. [-0.099, inf)
-
-@export_group("Cardinal", "cardinal_")
-
-@export var cardinal_scale := 0.5
-
-@export_group("Cubic Beziér", "cubic_bezier_")
-
-@export var cubic_bezier_allow_kinks := true:
+@export
+var points := PackedVector2Array():
 	set(value):
-		cubic_bezier_allow_kinks = value
-		
-		#for i: int in range(icons.size()):
-			#move_point(i, icons[i].position)
+		points = value
+		ratios = ratios
+		emit_changed()
 
-# kink resolution: closest neighbor, farthest neighbor, equidistant (take avg dist and apply to both)
+func evaluate_position(t: float) -> Vector2:
+	return _eval_spline(t, PlaynubSplines.SplineEvaluation.POSITION)
 
-@export_group("Cubic B-Spline", "cubic_b_spline_")
+func evaluate_velocity(t: float) -> Vector2:
+	return _eval_spline(t, PlaynubSplines.SplineEvaluation.VELOCITY)
 
-@export var cubic_b_spline_non_uniform := true
+func evaluate_acceleration(t: float) -> Vector2:
+	return _eval_spline(t, PlaynubSplines.SplineEvaluation.ACCELERATION)
 
-@export_group("Kochanek-Bartels", "kochanek_bartels_")
+func evaluate_jerk(t: float) -> Vector2:
+	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
-@export_range(-1.0, 1.0, 0.01)
-var kochanek_bartels_tension := 0.0
-@export_range(-1.0, 1.0, 0.01)
-var kochanek_bartels_bias := 0.0
-@export_range(-1.0, 1.0, 0.01)
-var kochanek_bartels_continuity := 0.0
+func evaluate_length(t: float) -> float:
+	var params := get_evaluation_parameters(t)
+	
+	return PlaynubSplines.length_spline_2D(spline_type
+			, params.t
+			, points[params.x0], points[params.x1], points[params.x2], points[params.x3]
+			, params.e1, params.e2, params.e3
+		)
+
+func get_control_point_count() -> int:
+	return points.size()
+
+func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector2:
+	var params := get_evaluation_parameters(t)
+	var relative_tangents := is_tangential_spline() and tangential_splines_relative_tangents
+	
+	return PlaynubSplines.eval_rational_spline_2D(spline_type
+			, eval
+			, params.t
+			, points[params.x0], points[params.x1] - points[params.x0] * float(relative_tangents), points[params.x2], points[params.x3] - points[params.x2] * float(relative_tangents)
+			, ratios[params.x0], ratios[params.x1],                                           ratios[params.x2], ratios[params.x3]
+			, params.e1, params.e2, params.e3
+		) if rationalization_enabled else PlaynubSplines.eval_spline_2D(spline_type
+			, eval
+			, params.t
+			, points[params.x0], points[params.x1] - points[params.x0] * float(relative_tangents), points[params.x2], points[params.x3] - points[params.x2] * float(relative_tangents)
+			, params.e1, params.e2, params.e3
+		)
+
+func get_control_point(index: int) -> Vector2:
+	return points[index]
+
+func _set_control_point_direct(index: int, pos: Vector2) -> void:
+	points[index] = pos
 
 #func move_point(index: int, pos: Vector2) -> void:
 	#var prev_pos := icons[index].position

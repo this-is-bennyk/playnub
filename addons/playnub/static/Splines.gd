@@ -174,19 +174,20 @@ static func eval_rational_spline_1D(type: SplineType, eval: SplineEvaluation, t:
 
 static func eval_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
-	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> Vector2:
 	match type:
 		SplineType.CARDINAL:
+			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_2D_vel(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_2D_vel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_2D_accel(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_2D_accel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_2D_jerk(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_2D_jerk(t, p0, p1, p2, p3, e1)
 				_:
-					return spline_cardinal_2D(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_2D(t, p0, p1, p2, p3, e1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
@@ -228,15 +229,37 @@ static func eval_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
 				_:
 					return spline_hermite_2D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
+			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_2D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_2D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_2D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_2D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_2D_jerk(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_2D_jerk(t, p0, p1, p2, p3, e1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_2D(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_2D(t, p0, p1, p2, p3, e1, extra2, extra3)
+		SplineType.AUTO_BIARC_UNCACHED:
+			match eval:
+				SplineEvaluation.VELOCITY:
+					return spline_auto_biarc_2D_vel(t, p0, p1, p2, p3)
+				SplineEvaluation.ACCELERATION:
+					return spline_auto_biarc_2D_accel(t, p0, p1, p2, p3)
+				SplineEvaluation.JERK:
+					return spline_auto_biarc_2D_jerk(t, p0, p1, p2, p3)
+				_:
+					return spline_auto_biarc_2D(t, p0, p1, p2, p3)
+		SplineType.AUTO_BIARC_CACHED:
+			var e1 := extra1 as Biarc2D
+			match eval:
+				SplineEvaluation.VELOCITY:
+					return spline_auto_biarc_2D_vel_cached(t, p0, p1, p2, p3, e1)
+				SplineEvaluation.ACCELERATION:
+					return spline_auto_biarc_2D_accel_cached(t, p0, p1, p2, p3, e1)
+				SplineEvaluation.JERK:
+					return spline_auto_biarc_2D_jerk_cached(t, p0, p1, p2, p3, e1)
+				_:
+					return spline_auto_biarc_2D_cached(t, p0, p1, p2, p3, e1)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector2()
 
@@ -1481,6 +1504,29 @@ class Biarc2D:
 
 static func spline_auto_biarc_2D(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
 	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_position(t)
+
+static func spline_auto_biarc_2D_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+	return biarc.evaluate_position(t)
+
+static func spline_auto_biarc_2D_vel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_velocity(t)
+
+static func spline_auto_biarc_2D_vel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+	return biarc.evaluate_velocity(t)
+
+static func spline_auto_biarc_2D_accel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_acceleration(t)
+
+static func spline_auto_biarc_2D_accel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+	return biarc.evaluate_acceleration(t)
+
+static func spline_auto_biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_jerk(t)
+
+static func spline_auto_biarc_2D_jerk_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+	return biarc.evaluate_jerk(t)
+
+# TODO: 3D Biarc
 
 # --------------------------------------------------------------------------------------------------
 #endregion
