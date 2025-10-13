@@ -25,6 +25,10 @@
 class_name Spliner
 extends Resource
 
+## The base class of all dimensions of splines.
+## 
+## This class abstracts out the common behaviors between splines of all dimensions.
+
 enum CubicBezierKinkResolution
 {
 	NEAREST_NEIGHBOR,
@@ -32,14 +36,17 @@ enum CubicBezierKinkResolution
 	EQUIDISTANT,
 }
 
-@export var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL
+## The kind of spline to evaluate.
+@export
+var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL
 
-@export var closed := false
+@export
+var closed := false
 
 @export_group("Rationalization")
 
-@export var rationalization_enabled := false
-# Bound is (-0.1, inf) i.e. [-0.099, inf)
+@export_custom(PROPERTY_HINT_GROUP_ENABLE, "")
+var rationalization_enabled := false
 
 @export
 var ratios := PackedFloat64Array():
@@ -58,7 +65,7 @@ var ratios := PackedFloat64Array():
 
 @export_group("Cardinal", "cardinal_")
 
-@export var cardinal_scale := 0.5
+@export var cardinal_tension := 0.5
 
 @export_group("Cubic Beziér", "cubic_bezier_")
 
@@ -84,11 +91,11 @@ var ratios := PackedFloat64Array():
 
 @export_group("Kochanek-Bartels", "kochanek_bartels_")
 
-@export_range(-1.0, 1.0, 0.01)
+@export
 var kochanek_bartels_tension := 0.0
-@export_range(-1.0, 1.0, 0.01)
+@export
 var kochanek_bartels_bias := 0.0
-@export_range(-1.0, 1.0, 0.01)
+@export
 var kochanek_bartels_continuity := 0.0
 
 @export_group("Tangential Splines", "tangential_splines_")
@@ -177,7 +184,7 @@ func is_tangential_spline() -> bool:
 func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 	var result := SplineEvaluationParameters.new()
 	
-	result.e1 = cardinal_scale * float(spline_type == PlaynubSplines.SplineType.CARDINAL) \
+	result.e1 = cardinal_tension * float(spline_type == PlaynubSplines.SplineType.CARDINAL) \
 			  + kochanek_bartels_tension * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
 	result.e2 = kochanek_bartels_bias * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
 	result.e3 = kochanek_bartels_continuity * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
@@ -262,6 +269,6 @@ class SplineEvaluationParameters:
 	var x2 := 0
 	var x3 := 0
 	
-	var e1 := 0.0
+	var e1: Variant = null
 	var e2 := 0.0
 	var e3 := 0.0
