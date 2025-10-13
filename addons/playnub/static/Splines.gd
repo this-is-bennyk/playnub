@@ -61,8 +61,8 @@ enum SplineType
 	, HERMITE
 	, KOCHANEK_BARTELS
 	
-	, AUTO_BIARC_UNCACHED
-	, AUTO_BIARC_CACHED
+	, BIARC_UNCACHED
+	, BIARC_CACHED
 }
 
 enum SplineEvaluation
@@ -239,27 +239,27 @@ static func eval_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
 					return spline_kochanek_bartels_2D_jerk(t, p0, p1, p2, p3, e1, extra2, extra3)
 				_:
 					return spline_kochanek_bartels_2D(t, p0, p1, p2, p3, e1, extra2, extra3)
-		SplineType.AUTO_BIARC_UNCACHED:
+		SplineType.BIARC_UNCACHED:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_auto_biarc_2D_vel(t, p0, p1, p2, p3)
+					return spline_biarc_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_auto_biarc_2D_accel(t, p0, p1, p2, p3)
+					return spline_biarc_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_auto_biarc_2D_jerk(t, p0, p1, p2, p3)
+					return spline_biarc_2D_jerk(t, p0, p1, p2, p3)
 				_:
-					return spline_auto_biarc_2D(t, p0, p1, p2, p3)
-		SplineType.AUTO_BIARC_CACHED:
+					return spline_biarc_2D(t, p0, p1, p2, p3)
+		SplineType.BIARC_CACHED:
 			var e1 := extra1 as Biarc2D
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_auto_biarc_2D_vel_cached(t, p0, p1, p2, p3, e1)
+					return spline_biarc_2D_vel_cached(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_auto_biarc_2D_accel_cached(t, p0, p1, p2, p3, e1)
+					return spline_biarc_2D_accel_cached(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.JERK:
-					return spline_auto_biarc_2D_jerk_cached(t, p0, p1, p2, p3, e1)
+					return spline_biarc_2D_jerk_cached(t, p0, p1, p2, p3, e1)
 				_:
-					return spline_auto_biarc_2D_cached(t, p0, p1, p2, p3, e1)
+					return spline_biarc_2D_cached(t, p0, p1, p2, p3, e1)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector2()
 
@@ -1341,189 +1341,230 @@ static func spline_kochanek_bartels_4D_jerk(t: float, p0: Vector4, p1: Vector4, 
 #region Biarc
 # --------------------------------------------------------------------------------------------------
 
-class Biarc2D:
-	var p0   := Vector2()
-	var tan0 := Vector2()
-	var p1   := Vector2()
-	var tan1 := Vector2()
+class Arc2D:
+	var _point := Vector2()
+	var _tangent := Vector2()
+	var _center := Vector2()
+	var _radius := 0.0
+	var _angle := 0.0
+	var _arclen := 0.0
+	var _flipped := false
 	
-	var midpoint := Vector2()
-	var center0  := Vector2()
-	var center1  := Vector2()
-	var radius0  := 0.0
-	var radius1  := 0.0
-	var angle0   := 0.0
-	var angle1   := 0.0
-	var arclen0  := 0.0
-	var arclen1  := 0.0
+	func get_point() -> Vector2:
+		return _point
 	
-	static func _biarc_cross_product_z_for_2D(a: Vector2, b: Vector2) -> float:
-		return a.x * b.y - a.y * b.x
+	func get_tangent() -> Vector2:
+		return _tangent
 	
-	static func create_auto(point0: Vector2, tangent0: Vector2, point1: Vector2, tangent1: Vector2) -> Biarc2D:
-		var result := Biarc2D.new()
+	func get_normal() -> Vector2:
+		return Vector2(-_tangent.y, _tangent.x)
+	
+	func get_center() -> Vector2:
+		return _center
+	
+	func get_radius() -> float:
+		return _radius
+	
+	func get_angle() -> float:
+		return _angle
+	
+	func get_arclength() -> float:
+		return _arclen
+	
+	func get_flipped() -> bool:
+		return _flipped
+	
+	func create_arc(start_point: Vector2, tangent: Vector2, endpoint: Vector2, flipped: bool) -> void:
+		_point = start_point
+		_tangent = tangent.normalized()
+		_flipped = flipped
 		
-		result.p0 = point0
-		result.p1 = point1
+		var norm := get_normal()
 		
-		result.tan0 = tangent0.normalized()
-		result.tan1 = tangent1.normalized()
+		var pt_to_mid := endpoint - _point
+		var scalar := pt_to_mid.dot(pt_to_mid) / (2.0 * norm.dot(pt_to_mid))
 		
-		var norm0 := Vector2(-result.tan0.y, result.tan0.x)
-		var norm1 := Vector2(-result.tan1.y, result.tan0.x)
+		_center = _point + scalar * norm
+		_radius = _center.distance_to(_point)
 		
-		var vel := result.p1 - result.p0
-		var vel_dot_vel := vel.dot(vel)
-		
-		if is_zero_approx(vel_dot_vel):
-			result.center0 = result.p0
-			result.center1 = result.p1
+		if is_zero_approx(_radius):
+			_angle = 0.0
+			_arclen = _point.distance_to(endpoint)
+		else:
+			var pt_rel_to_center := (_point   - _center) / _radius
+			var md_rel_to_center := (endpoint - _center) / _radius
 			
-			return result
-		
-		if result.tan0.is_equal_approx(result.tan1) and is_zero_approx(vel.dot(result.tan0)):
-			result.midpoint = result.p0 + 0.5 * vel
-			result.center0 =  result.p0.lerp(result.p1, 0.25)
-			result.center1 =  result.p0.lerp(result.p1, 0.75)
-			result.radius0 =  0.25 * vel.length()
-			result.radius1 =  result.radius1
-			
-			var cross_z := _biarc_cross_product_z_for_2D(vel, result.tan1)
-			var cross_z_negative := cross_z < 0.0
+			var cross_z := _cross_product_z_2D(pt_rel_to_center, md_rel_to_center)
 			var cross_z_positive := cross_z > 0.0
 			
-			result.angle0 = PI * (1.0 * float(cross_z_negative) + -1.0 * float(not cross_z_negative))
-			result.angle1 = PI * (1.0 * float(cross_z_positive) + -1.0 * float(not cross_z_positive))
+			_angle = acos(pt_rel_to_center.dot(md_rel_to_center)) * (1.0 * float(cross_z_positive) + -1.0 * float(not cross_z_positive))
 			
-			result.arclen0 = PI * result.radius0
-			result.arclen1 = PI * result.radius1
+			if _flipped:
+				_angle = TAU * (-1.0 * float(cross_z_positive) + 1.0 * float(not cross_z_positive)) + _angle
 			
-			return result
+			_arclen = absf(_angle * _radius)
+	
+	func prepare_for_semicircles(point: Vector2, tangent: Vector2, radius: float) -> void:
+		_point = point
+		_tangent = tangent
+		_radius = radius
+	
+	func create_semicircles_with(other_arc: Arc2D, cross_z: float) -> void:
+		_center				= _point.lerp(other_arc._point, 0.25)
+		other_arc._center 	= _point.lerp(other_arc._point, 0.75)
+		
+		var cross_z_negative := cross_z < 0.0
+		_angle = PI * (1.0 * float(cross_z_negative) + -1.0 * float(not cross_z_negative))
+		
+		var cross_z_positive := cross_z > 0.0
+		other_arc._angle = PI * (1.0 * float(cross_z_positive) + -1.0 * float(not cross_z_positive))
+	
+	static func _cross_product_z_2D(a: Vector2, b: Vector2) -> float:
+		return a.x * b.y - a.y * b.x
+
+class Biarc2D:
+	var arc0 := Arc2D.new()
+	var arc1 := Arc2D.new()
+	var midpoint := Vector2()
+	var total_arclength: float:
+		get:
+			return arc0.get_arclength() + arc1.get_arclength()
+	
+	func _init(p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> void:
+		calculate(p0, tan0, p1, tan1)
+	
+	func calculate(p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> void:
+		tan0 = tan0.normalized()
+		tan1 = tan1.normalized()
+		
+		var vel := p1 - p0
+		
+		if tan0.is_equal_approx(tan1) and is_zero_approx(vel.dot(tan1)):
+			midpoint = p0.lerp(p1, 0.5)
+			
+			var radius := vel.length() * 0.25
+			
+			arc0.prepare_for_semicircles(p0, tan1, radius)
+			arc1.prepare_for_semicircles(p1, tan1, radius)
+			arc0.create_semicircles_with(arc1, Arc2D._cross_product_z_2D(vel, tan1))
+			return
 		
 		var dist := 0.0
-		var tan0_dot_tan1 := result.tan0.dot(result.tan1)
-		var one_min_t0_dot_t1 := 1.0 - tan0_dot_tan1
-		var vel_dot_tan1 := vel.dot(result.tan1)
 		
-		if is_zero_approx(tan0_dot_tan1):
-			dist = vel_dot_vel / (4.0 * vel_dot_tan1)
+		if tan0.is_equal_approx(tan1):
+			dist = vel.dot(vel) / (4.0 * vel.dot(tan1))
 		else:
-			var tan_sum := result.tan0 + result.tan1
+			var tan_sum := tan0 + tan1
 			var vel_dot_tan_sum := vel.dot(tan_sum)
-			dist = (-vel_dot_tan_sum + sqrt(vel_dot_tan_sum * vel_dot_tan_sum + 2.0 * one_min_t0_dot_t1 * vel_dot_vel)) / (2.0 * one_min_t0_dot_t1)
+			var denominator := 2.0 * (1.0 - tan0.dot(tan1))
+			dist = (-vel_dot_tan_sum + sqrt(vel_dot_tan_sum * vel_dot_tan_sum + denominator * vel.dot(vel))) / denominator
 		
-		result.midpoint = 0.5 * (result.p0 + result.p1 + dist * (result.tan0 - result.tan1))
+		var negative_dist := not (dist > 0.0)
 		
-		var vec_p0_to_mdp := result.midpoint - result.p0
-		var scalar0 := vec_p0_to_mdp.dot(vec_p0_to_mdp) / (2.0 * norm0.dot(vec_p0_to_mdp))
+		midpoint = 0.5 * (p0 + p1 + dist * (tan0 - tan1))
 		
-		var vec_p1_to_mdp := result.midpoint - result.p1
-		var scalar1 := vec_p1_to_mdp.dot(vec_p1_to_mdp) / (2.0 * norm1.dot(vec_p1_to_mdp))
+		arc0.create_arc(p0, tan0, midpoint, negative_dist)
+		arc1.create_arc(p1, tan1, midpoint, negative_dist)
+	
+	func evaluate_position(t: float) -> Vector2:
+		var result := Vector2()
+		var cur_arclen := total_arclength * t
 		
-		result.center0 = result.p0 + scalar0 * norm0
-		result.center1 = result.p1 + scalar1 * norm1
-		result.radius0 = absf(scalar0)
-		result.radius1 = absf(scalar1)
-		
-		var p0_rel_to_circle0  := (result.p0 - result.center0) / result.radius0
-		var mdp_rel_to_circle0 := (result.midpoint - result.center0) / result.radius0
-		var p1_rel_to_circle1  := (result.p1 - result.center1) / result.radius1
-		var mdp_rel_to_circle1 := (result.midpoint - result.center1) / result.radius1
-		
-		var cross_z0_positive := _biarc_cross_product_z_for_2D(p0_rel_to_circle0, mdp_rel_to_circle0) > 0.0
-		var cross_z1_positive := _biarc_cross_product_z_for_2D(p1_rel_to_circle1, mdp_rel_to_circle1) > 0.0
-		
-		var arc0 := acos(p0_rel_to_circle0.dot(mdp_rel_to_circle0))
-		var arc1 := acos(p1_rel_to_circle1.dot(mdp_rel_to_circle1))
-		
-		result.angle0 = arc0 * (1.0 * float(cross_z0_positive) + -1.0 * float(not cross_z0_positive))
-		result.angle1 = arc1 * (1.0 * float(cross_z1_positive) + -1.0 * float(not cross_z1_positive))
-		
-		if dist < 0.0:
-			var tau0 := TAU * (-1.0 * float(cross_z0_positive) + 1.0 * float(cross_z0_positive))
-			var tau1 := TAU * (-1.0 * float(cross_z1_positive) + 1.0 * float(cross_z1_positive))
-			
-			result.angle0 = tau0 + result.angle0
-			result.angle1 = tau1 + result.angle1
-		
-		result.arclen0 = (result.midpoint - result.p0).length() if result.radius0 == 0.0 else absf(result.radius0 * result.angle0)
-		result.arclen1 = (result.midpoint - result.p1).length() if result.radius1 == 0.0 else absf(result.radius1 * result.angle1)
+		if cur_arclen < arc0.get_arclength():
+			if is_zero_approx(arc0.get_arclength()):
+				result = midpoint
+			else:
+				var arc0_percent := cur_arclen / arc0.get_arclength()
+				
+				if is_zero_approx(arc0.get_radius()):
+					result = arc0.get_center()
+				else:
+					var cur_angle := arc0.get_angle() * arc0_percent + (arc0.get_point() - arc0.get_center()).angle()
+					result = arc0.get_center() + Vector2(cos(cur_angle), sin(cur_angle)) * arc0.get_radius()
+		else:
+			if is_zero_approx(arc1.get_arclength()):
+				result = midpoint
+			else:
+				var arc1_percent := (cur_arclen - arc0.get_arclength()) / arc1.get_arclength()
+				
+				if is_zero_approx(arc1.get_radius()):
+					result = arc1.get_center()
+				else:
+					var cur_angle := arc1.get_angle() * (1.0 - arc1_percent) + (arc1.get_point() - arc1.get_center()).angle()
+					result = arc1.get_center() + Vector2(cos(cur_angle), sin(cur_angle)) * arc1.get_radius()
 		
 		return result
 	
-	func evaluate_position(t: float) -> Vector2:
-		var total_dist := arclen0 + arclen1
-		var cur_dist := t * total_dist
-		
-		if cur_dist < arclen0:
-			if is_zero_approx(arclen0):
-				return p0
-			
-			var arc0_percent := cur_dist / arclen0
-			
-			if radius0 == 0.0:
-				return p0.lerp(midpoint, arc0_percent)
-			
-			var cur_angle := angle0 * arc0_percent
-			
-			return center0 + Vector2(cos(cur_angle), sin(cur_angle)) * radius0
-		
-		if is_zero_approx(arclen1):
-			return midpoint
-		
-		var arc1_percent := (cur_dist - arclen0) / arclen1
-		
-		if radius1 == 0.0:
-			return midpoint.lerp(p1, arc1_percent)
-		
-		var cur_angle := angle1 * (1.0 - arc1_percent)
-		
-		return center1 + Vector2(cos(cur_angle), sin(cur_angle)) * radius1
-	
 	func evaluate_velocity(t: float) -> Vector2:
-		return (evaluate_position(t + SPLINES_EPSILON) - evaluate_position(t)) / SPLINES_EPSILON
+		return (evaluate_position(t + 0.0001) - evaluate_position(t)) / 0.0001
+		# REMARK: There's likely an exact solution to this problem without having to evaluate position. WIP below.
+		#region WIP Velocity
+		#var result := Vector2()
+		#var cur_arclen := total_arclength * t
+		#var total_radii := arc0.get_point().distance_to(arc1.get_point())
+		#
+		#if cur_arclen < arc0.get_arclength():
+			#if is_zero_approx(arc0.get_arclength()):
+				#result = arc0.get_normal() * total_radii
+			#else:
+				#var arc0_percent := cur_arclen / arc0.get_arclength()
+				#
+				#if not is_zero_approx(arc0.get_radius()):
+					#var cur_angle := arc0.get_angle() * arc0_percent + (arc0.get_point() - arc0.get_center()).angle()
+					#result = arc0.get_normal().rotated(cur_angle) * total_radii
+		#else:
+			#if is_zero_approx(arc1.get_arclength()):
+				#result = arc1.get_normal() * total_radii
+			#else:
+				#var arc1_percent := (cur_arclen - arc0.get_arclength()) / arc1.get_arclength()
+				#
+				#if not is_zero_approx(arc1.get_radius()):
+					#var cur_angle := arc1.get_angle() * (1.0 - arc1_percent) + (arc1.get_point() - arc1.get_center()).angle()
+					#result = arc1.get_normal().rotated(cur_angle) * total_radii
+		 #
+		#return result
+		#endregion
 	
 	func evaluate_acceleration(t: float) -> Vector2:
-		return (evaluate_velocity(t + SPLINES_EPSILON) - evaluate_velocity(t)) / SPLINES_EPSILON
+		return (evaluate_velocity(t + 0.0001) - evaluate_velocity(t)) / 0.0001
 	
 	func evaluate_jerk(t: float) -> Vector2:
-		return (evaluate_acceleration(t + SPLINES_EPSILON) - evaluate_acceleration(t)) / SPLINES_EPSILON
+		return (evaluate_acceleration(t + 0.0001) - evaluate_acceleration(t)) / 0.0001
 	
 	func evaluate_length(t: float) -> float:
-		var total_dist := arclen0 + arclen1
-		var cur_dist := t * total_dist
+		var cur_dist := t * total_arclength
 		
-		if cur_dist < arclen0:
-			if is_zero_approx(arclen0):
+		if cur_dist < arc0.get_arclength():
+			if is_zero_approx(arc0.get_arclength()):
 				return 0.0
-			return lerpf(0.0, arclen0, cur_dist / arclen0)
+			return lerpf(0.0, arc0.get_arclength(), cur_dist / arc0.get_arclength())
 		
-		if is_zero_approx(arclen1):
-			return arclen0
-		return lerpf(arclen0, total_dist, (cur_dist - arclen0) / arclen1)
+		if is_zero_approx(arc1.get_arclength()):
+			return arc0.get_arclength()
+		return lerpf(arc0.get_arclength(), total_arclength, (cur_dist - arc0.get_arclength()) / arc1.get_arclength())
 
-static func spline_auto_biarc_2D(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
-	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_position(t)
+static func spline_biarc_2D(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_position(t)
 
-static func spline_auto_biarc_2D_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+static func spline_biarc_2D_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_position(t)
 
-static func spline_auto_biarc_2D_vel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
-	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_velocity(t)
+static func spline_biarc_2D_vel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_velocity(t)
 
-static func spline_auto_biarc_2D_vel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+static func spline_biarc_2D_vel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_velocity(t)
 
-static func spline_auto_biarc_2D_accel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
-	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_acceleration(t)
+static func spline_biarc_2D_accel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_acceleration(t)
 
-static func spline_auto_biarc_2D_accel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+static func spline_biarc_2D_accel_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_acceleration(t)
 
-static func spline_auto_biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
-	return Biarc2D.create_auto(p0, tan0, p1, tan1).evaluate_jerk(t)
+static func spline_biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_jerk(t)
 
-static func spline_auto_biarc_2D_jerk_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
+static func spline_biarc_2D_jerk_cached(t: float, _p0: Vector2, _tan0: Vector2, _p1: Vector2, _tan1: Vector2, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_jerk(t)
 
 # TODO: 3D Biarc

@@ -171,8 +171,8 @@ func is_nurbs() -> bool:
 
 func is_tangential_spline() -> bool:
 	return spline_type == PlaynubSplines.SplineType.HERMITE \
-		or spline_type == PlaynubSplines.SplineType.AUTO_BIARC_UNCACHED \
-		or spline_type == PlaynubSplines.SplineType.AUTO_BIARC_CACHED
+		or spline_type == PlaynubSplines.SplineType.BIARC_UNCACHED \
+		or spline_type == PlaynubSplines.SplineType.BIARC_CACHED
 
 func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 	var result := SplineEvaluationParameters.new()
