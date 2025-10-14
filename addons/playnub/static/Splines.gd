@@ -377,19 +377,20 @@ static func eval_rational_spline_2D(type: SplineType, eval: SplineEvaluation, t:
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func eval_spline_3D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
-	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> Vector3:
 	match type:
 		SplineType.CARDINAL:
+			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_3D_vel(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_3D_vel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_3D_accel(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_3D_accel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_3D_jerk(p0, p1, p2, p3, extra1)
+					return spline_cardinal_3D_jerk(p0, p1, p2, p3, e1)
 				_:
-					return spline_cardinal_3D(t, p0, p1, p2, p3, extra1)
+					return spline_cardinal_3D(t, p0, p1, p2, p3, e1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
@@ -431,15 +432,37 @@ static func eval_spline_3D(type: SplineType, eval: SplineEvaluation, t: float,
 				_:
 					return spline_hermite_3D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
+			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_3D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_3D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_3D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_3D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_3D_jerk(p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_3D_jerk(p0, p1, p2, p3, e1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_3D(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return spline_kochanek_bartels_3D(t, p0, p1, p2, p3, e1, extra2, extra3)
+		SplineType.BIARC_UNCACHED:
+			match eval:
+				SplineEvaluation.VELOCITY:
+					return spline_biarc_3D_vel(t, p0, p1, p2, p3)
+				SplineEvaluation.ACCELERATION:
+					return spline_biarc_3D_accel(t, p0, p1, p2, p3)
+				SplineEvaluation.JERK:
+					return spline_biarc_3D_jerk(t, p0, p1, p2, p3)
+				_:
+					return spline_biarc_3D(t, p0, p1, p2, p3)
+		SplineType.BIARC_CACHED:
+			var e1 := extra1 as Biarc3D
+			match eval:
+				SplineEvaluation.VELOCITY:
+					return spline_biarc_3D_vel_cached(t, e1)
+				SplineEvaluation.ACCELERATION:
+					return spline_biarc_3D_accel_cached(t, e1)
+				SplineEvaluation.JERK:
+					return spline_biarc_3D_jerk_cached(t, e1)
+				_:
+					return spline_biarc_3D_cached(t, e1)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector3()
 
@@ -1720,7 +1743,8 @@ class Arc2D:
 		var norm := get_normal()
 		
 		var pt_to_mid := endpoint - _point
-		var scalar := pt_to_mid.dot(pt_to_mid) / (2.0 * norm.dot(pt_to_mid))
+		var denominator := 2.0 * norm.dot(pt_to_mid)
+		var scalar := pt_to_mid.dot(pt_to_mid) / denominator
 		
 		_center = _point + scalar * norm
 		_radius = _center.distance_to(_point)
@@ -1746,6 +1770,7 @@ class Arc2D:
 		_point = point
 		_tangent = tangent
 		_radius = radius
+		_arclen = PI * _radius
 	
 	func create_semicircles_with(other_arc: Arc2D, cross_z: float) -> void:
 		_center				= _point.lerp(other_arc._point, 0.25)
@@ -1917,7 +1942,242 @@ static func spline_biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vecto
 static func spline_biarc_2D_jerk_cached(t: float, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_jerk(t)
 
-# TODO: 3D Biarc
+class Arc3D:
+	var _point := Vector3()
+	var _tangent := Vector3()
+	var _normal := Vector3()
+	var _center := Vector3()
+	var _axis1 := Vector3()
+	var _axis2 := Vector3()
+	var _radius := 0.0
+	var _angle := 0.0
+	var _arclen := 0.0
+	var _flipped := false
+	
+	func get_point() -> Vector3:
+		return _point
+	
+	func get_tangent() -> Vector3:
+		return _tangent
+	
+	func get_normal() -> Vector3:
+		return _normal
+	
+	func get_center() -> Vector3:
+		return _center
+	
+	func get_axis1() -> Vector3:
+		return _axis1
+	
+	func get_axis2() -> Vector3:
+		return _axis2
+	
+	func get_radius() -> float:
+		return _radius
+	
+	func get_angle() -> float:
+		return _angle
+	
+	func get_arclength() -> float:
+		return _arclen
+	
+	func get_flipped() -> bool:
+		return _flipped
+	
+	func create_arc(start_point: Vector3, tangent: Vector3, endpoint: Vector3, flipped: bool, second_arc: bool) -> void:
+		_point = start_point
+		_tangent = tangent.normalized()
+		_flipped = flipped
+		
+		var pt_to_mid := endpoint - _point
+		
+		_normal = pt_to_mid.cross(_tangent)
+		var perpendicular_axis := _tangent.cross(_normal)
+		
+		var denominator := 2.0 * perpendicular_axis.dot(pt_to_mid)
+		
+		if is_zero_approx(denominator):
+			_center = _point.lerp(endpoint, 0.5)
+			_axis1 = _point - _center
+			_axis2 = Vector3()
+			_radius = 0.0
+			_angle = 0.0
+			_arclen = 0.0
+			return
+		
+		var scalar := pt_to_mid.dot(pt_to_mid) / denominator
+		
+		_center = _point + scalar * perpendicular_axis
+		_radius = _center.distance_to(_point)
+		
+		_axis1 = _point - _center
+		_axis2 = _tangent * _radius * (-1.0 * float(second_arc) + 1.0 * float(not second_arc))
+		
+		if is_zero_approx(_radius):
+			_angle = 0.0
+			_arclen = _point.distance_to(endpoint)
+		else:
+			var pt_rel_to_center := (_point   - _center) / _radius
+			var md_rel_to_center := (endpoint - _center) / _radius
+			
+			var twist := perpendicular_axis.dot(pt_to_mid)
+			var twist_dir := signf(twist)
+			
+			_angle = acos(pt_rel_to_center.dot(md_rel_to_center)) * twist_dir
+			
+			if _flipped:
+				_angle = TAU * -twist_dir + _angle
+			
+			_arclen = absf(_angle * _radius)
+	
+	func prepare_for_semicircles(point: Vector3, tangent: Vector3, radius: float) -> void:
+		_point = point
+		_tangent = tangent
+		_radius = radius
+		_arclen = PI * _radius
+	
+	func create_semicircles_with(other_arc: Arc3D, perpendicular_axis: Vector3) -> void:
+		_center				= _point.lerp(other_arc._point, 0.25)
+		other_arc._center 	= _point.lerp(other_arc._point, 0.75)
+		
+		_angle = PI
+		other_arc._angle = PI
+		
+		_axis1 = _point - _center
+		_axis2 = perpendicular_axis * _radius
+		
+		other_arc._axis1 = -_axis1
+		other_arc._axis2 = -_axis2
+
+class Biarc3D:
+	var arc0 := Arc3D.new()
+	var arc1 := Arc3D.new()
+	var midpoint := Vector3()
+	var total_arclength: float:
+		get:
+			return arc0.get_arclength() + arc1.get_arclength()
+	
+	func _init(p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> void:
+		calculate(p0, tan0, p1, tan1)
+	
+	func calculate(p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> void:
+		tan0 = tan0.normalized()
+		tan1 = tan1.normalized()
+		
+		var vel := p1 - p0
+		
+		if tan0.is_equal_approx(tan1) and is_zero_approx(vel.dot(tan1)):
+			midpoint = p0.lerp(p1, 0.5)
+			
+			var radius := vel.length() * 0.25
+			
+			arc0.prepare_for_semicircles(p0, tan1, radius)
+			arc1.prepare_for_semicircles(p1, tan1, radius)
+			arc0.create_semicircles_with(arc1, vel.cross(tan1).cross(vel).normalized())
+			return
+		
+		var dist := 0.0
+		
+		if tan0.is_equal_approx(tan1):
+			dist = vel.dot(vel) / (4.0 * vel.dot(tan1))
+		else:
+			var tan_sum := tan0 + tan1
+			var vel_dot_tan_sum := vel.dot(tan_sum)
+			var denominator := 2.0 * (1.0 - tan0.dot(tan1))
+			dist = (-vel_dot_tan_sum + sqrt(vel_dot_tan_sum * vel_dot_tan_sum + denominator * vel.dot(vel))) / denominator
+		
+		var negative_dist := not (dist > 0.0)
+		
+		midpoint = 0.5 * (p0 + p1 + dist * (tan0 - tan1))
+		
+		arc0.create_arc(p0, tan0, midpoint, negative_dist, false)
+		arc1.create_arc(p1, tan1, midpoint, negative_dist, true)
+	
+	func evaluate_position(t: float) -> Vector3:
+		var result := Vector3()
+		var cur_arclen := total_arclength * t
+		
+		if cur_arclen < arc0.get_arclength():
+			if is_zero_approx(arc0.get_arclength()):
+				result = midpoint
+			else:
+				var arc0_percent := cur_arclen / arc0.get_arclength()
+				
+				if is_zero_approx(arc0.get_radius()):
+					result = (arc0.get_center() + arc0.get_axis1()).lerp(arc0.get_center() - arc0.get_axis1(), t)
+				else:
+					var cur_angle := arc0.get_angle() * arc0_percent + arc0.get_point().angle_to(arc0.get_center())
+					result = arc0.get_center() + cos(cur_angle) * arc0.get_axis1() + sin(cur_angle) * arc0.get_axis2()
+		else:
+			if is_zero_approx(arc1.get_arclength()):
+				result = midpoint
+			else:
+				var arc1_percent := (cur_arclen - arc0.get_arclength()) / arc1.get_arclength()
+				
+				if is_zero_approx(arc1.get_radius()):
+					result = (arc1.get_center() - arc1.get_axis1()).lerp(arc1.get_center() + arc1.get_axis1(), t)
+				else:
+					var cur_angle := arc1.get_angle() * (1.0 - arc1_percent) + arc1.get_point().angle_to(arc1.get_center())
+					result = arc1.get_center() + cos(cur_angle) * arc1.get_axis1() + sin(cur_angle) * arc1.get_axis2()
+		
+		return result
+	
+	func evaluate_velocity(t: float) -> Vector3:
+		return (evaluate_position(t + 0.0001) - evaluate_position(t)) / 0.0001
+	
+	func evaluate_acceleration(t: float) -> Vector3:
+		return (evaluate_velocity(t + 0.0001) - evaluate_velocity(t)) / 0.0001
+	
+	func evaluate_jerk(t: float) -> Vector3:
+		return (evaluate_acceleration(t + 0.0001) - evaluate_acceleration(t)) / 0.0001
+	
+	func evaluate_length(t: float) -> float:
+		var cur_dist := t * total_arclength
+		
+		if cur_dist < arc0.get_arclength():
+			if is_zero_approx(arc0.get_arclength()):
+				return 0.0
+			return lerpf(0.0, arc0.get_arclength(), cur_dist / arc0.get_arclength())
+		
+		if is_zero_approx(arc1.get_arclength()):
+			return arc0.get_arclength()
+		return lerpf(arc0.get_arclength(), total_arclength, (cur_dist - arc0.get_arclength()) / arc1.get_arclength())
+
+## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func spline_biarc_3D(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_position(t)
+
+## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
+static func spline_biarc_3D_cached(t: float, biarc: Biarc3D) -> Vector3:
+	return biarc.evaluate_position(t)
+
+## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func spline_biarc_3D_vel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_velocity(t)
+
+## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
+static func spline_biarc_3D_vel_cached(t: float, biarc: Biarc3D) -> Vector3:
+	return biarc.evaluate_velocity(t)
+
+## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func spline_biarc_3D_accel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_acceleration(t)
+
+## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
+static func spline_biarc_3D_accel_cached(t: float, biarc: Biarc3D) -> Vector3:
+	return biarc.evaluate_acceleration(t)
+
+## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func spline_biarc_3D_jerk(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_jerk(t)
+
+## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
+static func spline_biarc_3D_jerk_cached(t: float, biarc: Biarc3D) -> Vector3:
+	return biarc.evaluate_jerk(t)
 
 # --------------------------------------------------------------------------------------------------
 #endregion
