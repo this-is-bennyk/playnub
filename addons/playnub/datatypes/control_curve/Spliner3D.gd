@@ -42,49 +42,45 @@ func evaluate_acceleration(t: float) -> Vector3:
 func evaluate_jerk(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
-func evaluate_length(t: float) -> float:
-	var params := get_evaluation_parameters(t)
-	var relative_tangents := is_tangential_spline() and tangential_splines_relative_tangents
-	var rel_tans_f := float(relative_tangents)
-	
-	return PlaynubSplines.length_spline_3D(spline_type
-			, params.t
-			, points[params.x0]
-			, points[params.x1] - points[params.x0] * rel_tans_f
-			, points[params.x2]
-			, points[params.x3] - points[params.x2] * rel_tans_f
-			, params.e1, params.e2, params.e3
-		)
-
 func get_control_point_count() -> int:
 	return points.size()
-
-func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector3:
-	var params := get_evaluation_parameters(t)
-	var relative_tangents := is_tangential_spline() and tangential_splines_relative_tangents
-	var rel_tans_f := float(relative_tangents)
-	
-	return PlaynubSplines.eval_rational_spline_3D(spline_type
-			, eval
-			, params.t
-			, points[params.x0]
-			, points[params.x1] - points[params.x0] * rel_tans_f
-			, points[params.x2]
-			, points[params.x3] - points[params.x2] * rel_tans_f
-			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
-			, params.e1, params.e2, params.e3
-		) if rationalization_enabled else PlaynubSplines.eval_spline_3D(spline_type
-			, eval
-			, params.t
-			, points[params.x0]
-			, points[params.x1] - points[params.x0] * rel_tans_f
-			, points[params.x2]
-			, points[params.x3] - points[params.x2] * rel_tans_f
-			, params.e1, params.e2, params.e3
-		)
 
 func get_control_point(index: int) -> Vector3:
 	return points[index]
 
 func _set_control_point_direct(index: int, pos: Vector3) -> void:
 	points[index] = pos
+
+func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
+	var params := get_evaluation_parameters(index_t)
+	
+	return PlaynubSplines.length_3D(spline_type
+			, params.t if use_params_t else 1.0
+			, points[params.x0]
+			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
+			, points[params.x2]
+			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
+			, params.e1, params.e2, params.e3
+		)
+
+func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector3:
+	var params := get_evaluation_parameters(t)
+	
+	return PlaynubSplines.eval_rational_3D(spline_type
+			, eval
+			, params.t
+			, points[params.x0]
+			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
+			, points[params.x2]
+			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
+			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
+			, params.e1, params.e2, params.e3
+		) if rationalization_enabled else PlaynubSplines.eval_3D(spline_type
+			, eval
+			, params.t
+			, points[params.x0]
+			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
+			, points[params.x2]
+			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
+			, params.e1, params.e2, params.e3
+		)

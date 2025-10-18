@@ -34,6 +34,7 @@ class_name PlaynubSplines
 ## @tutorial(Kochanek-Bartels spline): https://en.wikipedia.org/wiki/Kochanek%E2%80%93Bartels_spline
 ## @tutorial(Pomax: A Primer on Bézier Curves): https://pomax.github.io/bezierinfo/
 
+const _ONE_THIRTY_SECOND := 1.0 / 32.0
 const _ONE_TWELFTH := 1.0 / 12.0
 const _ONE_SIXTH := 1.0 / 6.0
 const _ONE_THIRD := 1.0 / 3.0
@@ -45,7 +46,20 @@ const SPLINES_EPSILON := 0.0001
 ## The lowest that ratios of a rational spline can be.
 const RATIO_MIN := -0.499
 
-## Magic numbers for approximating the length of all splines (except biarc splines, which have a known solution).
+## The size of a Cubic Beziér spline segment.
+const CUBIC_BEZIÉR_SEGMENT_SIZE := 3
+## The number of points added for NURBS (3 at the start, 3 at the end).
+const NUM_NURBS_NON_UNIFORM_POINTS := CUBIC_BEZIÉR_SEGMENT_SIZE * 2
+
+## The size of a spline segment that uses control points and control tangents.
+const TANGENTIAL_SEGMENT_SIZE := 2
+
+## The number of iterations for performing certain calculations with no analytic solution.
+const CONVERGENCE_SAMPLES := 32
+## The step size for performing certain calculations with no analytic solution.
+const CONVERGENCE_STEP := 1.0 / float(CONVERGENCE_SAMPLES)
+
+## Magic numbers for near-exact approximations of the length of certain splines.
 const GAUSS_LEGENDRE_COEFFICIENTS: Array[float] = [
 	0.0, 128.0 / 225.0,
 	-_ONE_THIRD * sqrt(5.0 - 2.0 * sqrt(10.0 / 7.0)), ((322.0 + 13.0 * sqrt(70.0)) / 900.0),
@@ -72,16 +86,16 @@ enum SplineType
 	, CATMULL_ROM
 	
 	## A spline that travels through two endpoints whose shape is controlled by 2 non-connecting control points.[br]
-	## The general version of the Cubic B-Spline.[br][br]
+	## The general version of the B-Spline.[br][br]
 	## [i]Examples[/i]: vector graphics; smooth paths (outskirt roads, trails, etc.).
-	, CUBIC_BEZIER
+	, CUBIC_BEZIÉR
 	## A spline whose shape is controlled by 4 non-connecting control points.[br]
-	## A special version of the Cubic Bezier spline with highly specific modifications.[br]
+	## A special version of the Cubic Beziér spline with highly specific modifications to the incoming control points.[br]
 	## Allowing the spline to be non-uniform (technically open-uniform) and using the
 	## rational version of the spline allows one to create a [b]Non-Uniform Rational B-Spline[/b],
 	## more commonly known as [b]NURBS[/b].[br][br]
 	## [i]Examples[/i]: flowing paths (wind paths, rivers, etc.); smoothing a cluster of processed data into a curve.
-	, CUBIC_B_SPLINE
+	, B_SPLINE
 	
 	## A spline created by deducing a curve from two points and their velocities.[br]
 	## The general version of the Kochanek-Bartels spline.[br][br]
@@ -98,12 +112,12 @@ enum SplineType
 	
 	## A spline created by two arcs / semi-circles as determined by two points and their tangents.
 	## This version trades speed for memory efficiency.[br][br]
-	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br][br]
+	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br]
 	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.
 	, BIARC_UNCACHED
 	## A spline created by two arcs / semi-circles as determined by two points and their tangents.
 	## This version trades memory efficiency for speed.[br][br]
-	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br][br]
+	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br]
 	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.
 	, BIARC_CACHED
 }
@@ -130,7 +144,7 @@ enum SplineEvaluation
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_spline_1D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_1D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: float, p1: float, p2: float, p3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> float:
@@ -138,89 +152,105 @@ static func eval_spline_1D(type: SplineType, eval: SplineEvaluation, t: float,
 		SplineType.CARDINAL:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_1D_vel(t, p0, p1, p2, p3, extra1)
+					return cardinal_1D_vel(t, p0, p1, p2, p3, extra1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_1D_accel(t, p0, p1, p2, p3, extra1)
+					return cardinal_1D_accel(t, p0, p1, p2, p3, extra1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_1D_jerk(p0, p1, p2, p3, extra1)
+					return cardinal_1D_jerk(p0, p1, p2, p3, extra1)
 				_:
-					return spline_cardinal_1D(t, p0, p1, p2, p3, extra1)
+					return cardinal_1D(t, p0, p1, p2, p3, extra1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_catmull_rom_1D_vel(t, p0, p1, p2, p3)
+					return catmull_rom_1D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_catmull_rom_1D_accel(t, p0, p1, p2, p3)
+					return catmull_rom_1D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_catmull_rom_1D_jerk(p0, p1, p2, p3)
+					return catmull_rom_1D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_catmull_rom_1D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_BEZIER:
+					return catmull_rom_1D(t, p0, p1, p2, p3)
+		SplineType.CUBIC_BEZIÉR:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_bezier_1D_vel(t, p0, p1, p2, p3)
+					return cubic_bezier_1D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_bezier_1D_accel(t, p0, p1, p2, p3)
+					return cubic_bezier_1D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_bezier_1D_jerk(t, p0, p1, p2, p3)
+					return cubic_bezier_1D_jerk(t, p0, p1, p2, p3)
 				_:
-					return spline_cubic_bezier_1D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_B_SPLINE:
+					return cubic_bezier_1D(t, p0, p1, p2, p3)
+		SplineType.B_SPLINE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_b_spline_1D_vel(t, p0, p1, p2, p3)
+					return cubic_b_spline_1D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_b_spline_1D_accel(t, p0, p1, p2, p3)
+					return cubic_b_spline_1D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_b_spline_1D_jerk(p0, p1, p2, p3)
+					return cubic_b_spline_1D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_b_spline_1D(t, p0, p1, p2, p3)
+					return cubic_b_spline_1D(t, p0, p1, p2, p3)
 		SplineType.HERMITE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_hermite_1D_vel(t, p0, p1, p2, p3)
+					return hermite_1D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_hermite_1D_accel(t, p0, p1, p2, p3)
+					return hermite_1D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_hermite_1D_jerk(p0, p1, p2, p3)
+					return hermite_1D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_hermite_1D(t, p0, p1, p2, p3)
+					return hermite_1D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_1D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_1D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_1D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_1D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_1D_jerk(p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_1D_jerk(p0, p1, p2, p3, extra1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_1D(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_1D(t, p0, p1, p2, p3, extra1, extra2, extra3)
 	assert(false, "Unknown/unimplemented spline type!")
 	return 0.0
 
-static func length_spline_1D(type: SplineType, t: float,
+static func length_1D(type: SplineType, t: float,
 	p0: float, p1: float, p2: float, p3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> float:
-	var result := 0.0
-	var gauss_legendre_index := 0
-	var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
-	
-	while gauss_legendre_index < num_gauss_legendre_coeffs:
-		var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
-		var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
+	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+		var result := 0.0
+		var gauss_legendre_index := 0
+		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
 		
-		result += absf(eval_spline_1D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3)) * t * weight
+		while gauss_legendre_index < num_gauss_legendre_coeffs:
+			var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
+			var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+			
+			result += absf(eval_1D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3)) * t * weight
+			
+			gauss_legendre_index += 1
 		
-		gauss_legendre_index += 1
+		return 0.5 * result
 	
-	return 0.5 * result
+	# Otherwise flatten the curve and sum the distances from sample to sample
+	
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_1D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		var curr := eval_1D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		sum += absf(curr - prev)
+		
+		i += 1
+	
+	return sum
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
 ## [param r0], [param r1], [param r2], and [param r3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_rational_spline_1D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_rational_1D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: float, p1: float, p2: float, p3: float,
 	r0: float, r1: float, r2: float, r3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
@@ -230,18 +260,18 @@ static func eval_rational_spline_1D(type: SplineType, eval: SplineEvaluation, t:
 	r2 = maxf(RATIO_MIN, r2)
 	r3 = maxf(RATIO_MIN, r3)
 	
-	var basis := eval_spline_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
+	var basis := eval_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
 	
 	if is_zero_approx(basis):
 		basis = 1.0
 	
-	var result := eval_spline_1D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
+	var result := eval_1D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
 	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> Vector2:
@@ -250,111 +280,153 @@ static func eval_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
 			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_2D_vel(t, p0, p1, p2, p3, e1)
+					return cardinal_2D_vel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_2D_accel(t, p0, p1, p2, p3, e1)
+					return cardinal_2D_accel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_2D_jerk(p0, p1, p2, p3, e1)
+					return cardinal_2D_jerk(p0, p1, p2, p3, e1)
 				_:
-					return spline_cardinal_2D(t, p0, p1, p2, p3, e1)
+					return cardinal_2D(t, p0, p1, p2, p3, e1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_catmull_rom_2D_vel(t, p0, p1, p2, p3)
+					return catmull_rom_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_catmull_rom_2D_accel(t, p0, p1, p2, p3)
+					return catmull_rom_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_catmull_rom_2D_jerk(p0, p1, p2, p3)
+					return catmull_rom_2D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_catmull_rom_2D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_BEZIER:
+					return catmull_rom_2D(t, p0, p1, p2, p3)
+		SplineType.CUBIC_BEZIÉR:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_bezier_2D_vel(t, p0, p1, p2, p3)
+					return cubic_bezier_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_bezier_2D_accel(t, p0, p1, p2, p3)
+					return cubic_bezier_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_bezier_2D_jerk(p0, p1, p2, p3)
+					return cubic_bezier_2D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_bezier_2D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_B_SPLINE:
+					return cubic_bezier_2D(t, p0, p1, p2, p3)
+		SplineType.B_SPLINE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_b_spline_2D_vel(t, p0, p1, p2, p3)
+					return cubic_b_spline_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_b_spline_2D_accel(t, p0, p1, p2, p3)
+					return cubic_b_spline_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_b_spline_2D_jerk(p0, p1, p2, p3)
+					return cubic_b_spline_2D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_b_spline_2D(t, p0, p1, p2, p3)
+					return cubic_b_spline_2D(t, p0, p1, p2, p3)
 		SplineType.HERMITE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_hermite_2D_vel(t, p0, p1, p2, p3)
+					return hermite_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_hermite_2D_accel(t, p0, p1, p2, p3)
+					return hermite_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_hermite_2D_jerk(p0, p1, p2, p3)
+					return hermite_2D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_hermite_2D(t, p0, p1, p2, p3)
+					return hermite_2D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
 			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_2D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_2D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_2D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_2D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_2D_jerk(p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_2D_jerk(p0, p1, p2, p3, e1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_2D(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_2D(t, p0, p1, p2, p3, e1, extra2, extra3)
 		SplineType.BIARC_UNCACHED:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_biarc_2D_vel(t, p0, p1, p2, p3)
+					return biarc_2D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_biarc_2D_accel(t, p0, p1, p2, p3)
+					return biarc_2D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_biarc_2D_jerk(t, p0, p1, p2, p3)
+					return biarc_2D_jerk(t, p0, p1, p2, p3)
 				_:
-					return spline_biarc_2D(t, p0, p1, p2, p3)
+					return biarc_2D(t, p0, p1, p2, p3)
 		SplineType.BIARC_CACHED:
 			var e1 := extra1 as Biarc2D
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_biarc_2D_vel_cached(t, e1)
+					return biarc_2D_vel_cached(t, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_biarc_2D_accel_cached(t, e1)
+					return biarc_2D_accel_cached(t, e1)
 				SplineEvaluation.JERK:
-					return spline_biarc_2D_jerk_cached(t, e1)
+					return biarc_2D_jerk_cached(t, e1)
 				_:
-					return spline_biarc_2D_cached(t, e1)
+					return biarc_2D_cached(t, e1)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector2()
 
-static func length_spline_2D(type: SplineType, t: float,
+static func _chebyshev_eval(derivative: PackedFloat64Array, point: float) -> float:
+		var p_times_2 := 2.0 * point
+		var end := derivative.size() - 1
+		var b1 := 0.0
+		
+		if end % 2 != 0:
+			b1 = derivative[end]
+			end -= 1
+		
+		var b2 := 0.0
+		
+		while end >= 2:
+			b2 = derivative[end] + p_times_2 * b1 - b2
+			b1 = derivative[end - 1] + p_times_2 * b2 - b1
+			end -= 2
+		
+		return derivative[0] + point * b1 - b2
+
+static func length_2D(type: SplineType, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
-	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> float:
-	var result := 0.0
-	var gauss_legendre_index := 0
-	var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
+	# If we're using a biarc, return its exact length
+	if type == SplineType.BIARC_UNCACHED:
+		return biarc_2D_length(t, p0, p1, p2, p3)
 	
-	while gauss_legendre_index < num_gauss_legendre_coeffs:
-		var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
-		var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
-		
-		result += eval_spline_2D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
-		
-		gauss_legendre_index += 1
+	elif type == SplineType.BIARC_CACHED:
+		var biarc := extra1 as Biarc2D
+		return biarc_2D_length_cached(t, biarc)
 	
-	return 0.5 * result
+	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
+	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+		var result := 0.0
+		var gauss_legendre_index := 0
+		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
+		
+		while gauss_legendre_index < num_gauss_legendre_coeffs:
+			var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
+			var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+			
+			result += eval_2D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
+			
+			gauss_legendre_index += 1
+		
+		return 0.5 * result
+	
+	# Otherwise flatten the curve and sum the distances from sample to sample
+	
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_2D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		var curr := eval_2D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
 ## [param r0], [param r1], [param r2], and [param r3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_rational_spline_2D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_rational_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
 	r0: float,   r1: float,   r2: float,   r3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
@@ -364,18 +436,18 @@ static func eval_rational_spline_2D(type: SplineType, eval: SplineEvaluation, t:
 	r2 = maxf(RATIO_MIN, r2)
 	r3 = maxf(RATIO_MIN, r3)
 	
-	var basis := eval_spline_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
+	var basis := eval_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
 	
 	if is_zero_approx(basis):
 		basis = 1.0
 	
-	var result := eval_spline_2D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
+	var result := eval_2D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_spline_3D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_3D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
 	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> Vector3:
@@ -384,111 +456,135 @@ static func eval_spline_3D(type: SplineType, eval: SplineEvaluation, t: float,
 			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_3D_vel(t, p0, p1, p2, p3, e1)
+					return cardinal_3D_vel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_3D_accel(t, p0, p1, p2, p3, e1)
+					return cardinal_3D_accel(t, p0, p1, p2, p3, e1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_3D_jerk(p0, p1, p2, p3, e1)
+					return cardinal_3D_jerk(p0, p1, p2, p3, e1)
 				_:
-					return spline_cardinal_3D(t, p0, p1, p2, p3, e1)
+					return cardinal_3D(t, p0, p1, p2, p3, e1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_catmull_rom_3D_vel(t, p0, p1, p2, p3)
+					return catmull_rom_3D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_catmull_rom_3D_accel(t, p0, p1, p2, p3)
+					return catmull_rom_3D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_catmull_rom_3D_jerk(p0, p1, p2, p3)
+					return catmull_rom_3D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_catmull_rom_3D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_BEZIER:
+					return catmull_rom_3D(t, p0, p1, p2, p3)
+		SplineType.CUBIC_BEZIÉR:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_bezier_3D_vel(t, p0, p1, p2, p3)
+					return cubic_bezier_3D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_bezier_3D_accel(t, p0, p1, p2, p3)
+					return cubic_bezier_3D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_bezier_3D_jerk(p0, p1, p2, p3)
+					return cubic_bezier_3D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_bezier_3D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_B_SPLINE:
+					return cubic_bezier_3D(t, p0, p1, p2, p3)
+		SplineType.B_SPLINE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_b_spline_3D_vel(t, p0, p1, p2, p3)
+					return cubic_b_spline_3D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_b_spline_3D_accel(t, p0, p1, p2, p3)
+					return cubic_b_spline_3D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_b_spline_3D_jerk(p0, p1, p2, p3)
+					return cubic_b_spline_3D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_b_spline_3D(t, p0, p1, p2, p3)
+					return cubic_b_spline_3D(t, p0, p1, p2, p3)
 		SplineType.HERMITE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_hermite_3D_vel(t, p0, p1, p2, p3)
+					return hermite_3D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_hermite_3D_accel(t, p0, p1, p2, p3)
+					return hermite_3D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_hermite_3D_jerk(p0, p1, p2, p3)
+					return hermite_3D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_hermite_3D(t, p0, p1, p2, p3)
+					return hermite_3D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
 			var e1 := extra1 as float
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_3D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_3D_vel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_3D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_3D_accel(t, p0, p1, p2, p3, e1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_3D_jerk(p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_3D_jerk(p0, p1, p2, p3, e1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_3D(t, p0, p1, p2, p3, e1, extra2, extra3)
+					return kochanek_bartels_3D(t, p0, p1, p2, p3, e1, extra2, extra3)
 		SplineType.BIARC_UNCACHED:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_biarc_3D_vel(t, p0, p1, p2, p3)
+					return biarc_3D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_biarc_3D_accel(t, p0, p1, p2, p3)
+					return biarc_3D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_biarc_3D_jerk(t, p0, p1, p2, p3)
+					return biarc_3D_jerk(t, p0, p1, p2, p3)
 				_:
-					return spline_biarc_3D(t, p0, p1, p2, p3)
+					return biarc_3D(t, p0, p1, p2, p3)
 		SplineType.BIARC_CACHED:
 			var e1 := extra1 as Biarc3D
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_biarc_3D_vel_cached(t, e1)
+					return biarc_3D_vel_cached(t, e1)
 				SplineEvaluation.ACCELERATION:
-					return spline_biarc_3D_accel_cached(t, e1)
+					return biarc_3D_accel_cached(t, e1)
 				SplineEvaluation.JERK:
-					return spline_biarc_3D_jerk_cached(t, e1)
+					return biarc_3D_jerk_cached(t, e1)
 				_:
-					return spline_biarc_3D_cached(t, e1)
+					return biarc_3D_cached(t, e1)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector3()
 
-static func length_spline_3D(type: SplineType, t: float,
+static func length_3D(type: SplineType, t: float,
 	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
-	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
 ) -> float:
-	var result := 0.0
-	var gauss_legendre_index := 0
-	var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
+	# If we're using a biarc, return its exact length
+	if type == SplineType.BIARC_UNCACHED:
+		return biarc_3D_length(t, p0, p1, p2, p3)
 	
-	while gauss_legendre_index < num_gauss_legendre_coeffs:
-		var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
-		var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
-		
-		result += eval_spline_3D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
-		
-		gauss_legendre_index += 1
+	elif type == SplineType.BIARC_CACHED:
+		var biarc := extra1 as Biarc3D
+		return biarc_3D_length_cached(t, biarc)
 	
-	return 0.5 * result
+	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
+	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+		var result := 0.0
+		var gauss_legendre_index := 0
+		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
+		
+		while gauss_legendre_index < num_gauss_legendre_coeffs:
+			var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
+			var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+			
+			result += eval_3D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
+			
+			gauss_legendre_index += 1
+		
+		return 0.5 * result
+	
+	# Otherwise flatten the curve and sum the distances from sample to sample
+	
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_3D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		var curr := eval_3D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
 ## [param r0], [param r1], [param r2], and [param r3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_rational_spline_3D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_rational_3D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
 	r0: float,   r1: float,   r2: float,   r3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
@@ -498,18 +594,18 @@ static func eval_rational_spline_3D(type: SplineType, eval: SplineEvaluation, t:
 	r2 = maxf(RATIO_MIN, r2)
 	r3 = maxf(RATIO_MIN, r3)
 	
-	var basis := eval_spline_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
+	var basis := eval_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
 	
 	if is_zero_approx(basis):
 		basis = 1.0
 	
-	var result := eval_spline_3D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
+	var result := eval_3D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_spline_4D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_4D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> Vector4:
@@ -517,90 +613,106 @@ static func eval_spline_4D(type: SplineType, eval: SplineEvaluation, t: float,
 		SplineType.CARDINAL:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cardinal_4D_vel(t, p0, p1, p2, p3, extra1)
+					return cardinal_4D_vel(t, p0, p1, p2, p3, extra1)
 				SplineEvaluation.ACCELERATION:
-					return spline_cardinal_4D_accel(t, p0, p1, p2, p3, extra1)
+					return cardinal_4D_accel(t, p0, p1, p2, p3, extra1)
 				SplineEvaluation.JERK:
-					return spline_cardinal_4D_jerk(p0, p1, p2, p3, extra1)
+					return cardinal_4D_jerk(p0, p1, p2, p3, extra1)
 				_:
-					return spline_cardinal_4D(t, p0, p1, p2, p3, extra1)
+					return cardinal_4D(t, p0, p1, p2, p3, extra1)
 		SplineType.CATMULL_ROM:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_catmull_rom_4D_vel(t, p0, p1, p2, p3)
+					return catmull_rom_4D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_catmull_rom_4D_accel(t, p0, p1, p2, p3)
+					return catmull_rom_4D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_catmull_rom_4D_jerk(p0, p1, p2, p3)
+					return catmull_rom_4D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_catmull_rom_4D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_BEZIER:
+					return catmull_rom_4D(t, p0, p1, p2, p3)
+		SplineType.CUBIC_BEZIÉR:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_bezier_4D_vel(t, p0, p1, p2, p3)
+					return cubic_bezier_4D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_bezier_4D_accel(t, p0, p1, p2, p3)
+					return cubic_bezier_4D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_bezier_4D_jerk(p0, p1, p2, p3)
+					return cubic_bezier_4D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_bezier_4D(t, p0, p1, p2, p3)
-		SplineType.CUBIC_B_SPLINE:
+					return cubic_bezier_4D(t, p0, p1, p2, p3)
+		SplineType.B_SPLINE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_cubic_b_spline_4D_vel(t, p0, p1, p2, p3)
+					return cubic_b_spline_4D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_cubic_b_spline_4D_accel(t, p0, p1, p2, p3)
+					return cubic_b_spline_4D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_cubic_b_spline_4D_jerk(p0, p1, p2, p3)
+					return cubic_b_spline_4D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_cubic_b_spline_4D(t, p0, p1, p2, p3)
+					return cubic_b_spline_4D(t, p0, p1, p2, p3)
 		SplineType.HERMITE:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_hermite_4D_vel(t, p0, p1, p2, p3)
+					return hermite_4D_vel(t, p0, p1, p2, p3)
 				SplineEvaluation.ACCELERATION:
-					return spline_hermite_4D_accel(t, p0, p1, p2, p3)
+					return hermite_4D_accel(t, p0, p1, p2, p3)
 				SplineEvaluation.JERK:
-					return spline_hermite_4D_jerk(p0, p1, p2, p3)
+					return hermite_4D_jerk(p0, p1, p2, p3)
 				_:
-					return spline_hermite_4D(t, p0, p1, p2, p3)
+					return hermite_4D(t, p0, p1, p2, p3)
 		SplineType.KOCHANEK_BARTELS:
 			match eval:
 				SplineEvaluation.VELOCITY:
-					return spline_kochanek_bartels_4D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_4D_vel(t, p0, p1, p2, p3, extra1, extra2, extra3)
 				SplineEvaluation.ACCELERATION:
-					return spline_kochanek_bartels_4D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_4D_accel(t, p0, p1, p2, p3, extra1, extra2, extra3)
 				SplineEvaluation.JERK:
-					return spline_kochanek_bartels_4D_jerk(p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_4D_jerk(p0, p1, p2, p3, extra1, extra2, extra3)
 				_:
-					return spline_kochanek_bartels_4D(t, p0, p1, p2, p3, extra1, extra2, extra3)
+					return kochanek_bartels_4D(t, p0, p1, p2, p3, extra1, extra2, extra3)
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector4()
 
-static func length_spline_4D(type: SplineType, t: float,
+static func length_4D(type: SplineType, t: float,
 	p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4,
 	r0 := 1.0,   r1 := 1.0,   r2 := 1.0,   r3 := 1.0,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> float:
-	var result := 0.0
-	var gauss_legendre_index := 0
-	var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
-	
-	while gauss_legendre_index < num_gauss_legendre_coeffs:
-		var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
-		var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
+	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+		var result := 0.0
+		var gauss_legendre_index := 0
+		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
 		
-		result += eval_spline_4D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
+		while gauss_legendre_index < num_gauss_legendre_coeffs:
+			var abscissa := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2]
+			var weight   := GAUSS_LEGENDRE_COEFFICIENTS[gauss_legendre_index * 2 + 1]
+			
+			result += eval_4D(type, SplineEvaluation.VELOCITY, t * 0.5 * (1.0 + abscissa), p0, p1, p2, p3, extra1, extra2, extra3).length() * t * weight
+			
+			gauss_legendre_index += 1
 		
-		gauss_legendre_index += 1
+		return 0.5 * result
 	
-	return 0.5 * result
+	# Otherwise flatten the curve and sum the distances from sample to sample
+	
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_4D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		var curr := eval_4D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
 ## [param r0], [param r1], [param r2], and [param r3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
-static func eval_rational_spline_4D(type: SplineType, eval: SplineEvaluation, t: float,
+static func eval_rational_4D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4,
 	r0: float,   r1: float,   r2: float,   r3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
@@ -610,12 +722,12 @@ static func eval_rational_spline_4D(type: SplineType, eval: SplineEvaluation, t:
 	r2 = maxf(RATIO_MIN, r2)
 	r3 = maxf(RATIO_MIN, r3)
 	
-	var basis := eval_spline_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
+	var basis := eval_1D(type, eval, t, r0, r1, r2, r3, extra1, extra2, extra3)
 	
 	if is_zero_approx(basis):
 		basis = 1.0
 	
-	var result := eval_spline_4D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
+	var result := eval_4D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
 # --------------------------------------------------------------------------------------------------
@@ -624,7 +736,7 @@ static func eval_rational_spline_4D(type: SplineType, eval: SplineEvaluation, t:
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_1D(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
+static func cardinal_1D(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
 	var t_pow2 := t * t
 	return (
 		  p1
@@ -634,7 +746,7 @@ static func spline_cardinal_1D(t: float, p0: float, p1: float, p2: float, p3: fl
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
+static func cardinal_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
 	var t_pow2 := t * t
 	return (
 		  scale * (4.0 * t - 3.0 * t_pow2 - 1.0) 							* p0
@@ -644,7 +756,7 @@ static func spline_cardinal_1D_vel(t: float, p0: float, p1: float, p2: float, p3
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
+static func cardinal_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
 	return (
 		  scale * (4.0 - 6.0 * t) 							* p0
 		+ 2.0 * (scale * (1.0 - 3.0 * t) + 6.0 * t - 3.0) 	* p1
@@ -653,12 +765,12 @@ static func spline_cardinal_1D_accel(t: float, p0: float, p1: float, p2: float, 
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_1D_jerk(p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
+static func cardinal_1D_jerk(p0: float, p1: float, p2: float, p3: float, scale: float) -> float:
 	return 6.0 * (-scale * p0 + (2.0 - scale) * p1 + (scale - 2.0) * p2 + scale * p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
+static func cardinal_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
 	var t_pow2 := t * t
 	return (
 		  p1
@@ -668,7 +780,7 @@ static func spline_cardinal_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, 
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
+static func cardinal_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
 	var t_pow2 := t * t
 	return (
 		  scale * (4.0 * t - 3.0 * t_pow2 - 1.0) 							* p0
@@ -678,7 +790,7 @@ static func spline_cardinal_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vecto
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
+static func cardinal_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
 	return (
 		  scale * (4.0 - 6.0 * t) 							* p0
 		+ 2.0 * (scale * (1.0 - 3.0 * t) + 6.0 * t - 3.0) 	* p1
@@ -687,12 +799,12 @@ static func spline_cardinal_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vec
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
+static func cardinal_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, scale: float) -> Vector2:
 	return 6.0 * (-scale * p0 + (2.0 - scale) * p1 + (scale - 2.0) * p2 + scale * p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
+static func cardinal_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
 	var t_pow2 := t * t
 	return (
 		  p1
@@ -702,7 +814,7 @@ static func spline_cardinal_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, 
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
+static func cardinal_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
 	var t_pow2 := t * t
 	return (
 		  scale * (4.0 * t - 3.0 * t_pow2 - 1.0) 							* p0
@@ -712,7 +824,7 @@ static func spline_cardinal_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vecto
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
+static func cardinal_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
 	return (
 		  scale * (4.0 - 6.0 * t) 							* p0
 		+ 2.0 * (scale * (1.0 - 3.0 * t) + 6.0 * t - 3.0) 	* p1
@@ -721,12 +833,12 @@ static func spline_cardinal_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vec
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
+static func cardinal_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, scale: float) -> Vector3:
 	return 6.0 * (-scale * p0 + (2.0 - scale) * p1 + (scale - 2.0) * p2 + scale * p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
+static func cardinal_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
 	var t_pow2 := t * t
 	return (
 		  p1
@@ -736,7 +848,7 @@ static func spline_cardinal_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, 
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
+static func cardinal_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
 	var t_pow2 := t * t
 	return (
 		  scale * (4.0 * t - 3.0 * t_pow2 - 1.0) 							* p0
@@ -746,7 +858,7 @@ static func spline_cardinal_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vecto
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
+static func cardinal_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
 	return (
 		  scale * (4.0 - 6.0 * t) 							* p0
 		+ 2.0 * (scale * (1.0 - 3.0 * t) + 6.0 * t - 3.0) 	* p1
@@ -755,7 +867,7 @@ static func spline_cardinal_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vec
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cardinal spline defined by
 ## [param p0], [param p1], [param p2], [param p3], and [param scale].
-static func spline_cardinal_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
+static func cardinal_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, scale: float) -> Vector4:
 	return 6.0 * (-scale * p0 + (2.0 - scale) * p1 + (scale - 2.0) * p2 + scale * p3)
 
 # --------------------------------------------------------------------------------------------------
@@ -768,7 +880,7 @@ static func spline_cardinal_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: V
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_1D(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+static func catmull_rom_1D(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
 	var t_pow2 := t * t
 	return 0.5 * (
 		  (2.0 * p1)
@@ -778,7 +890,7 @@ static func spline_catmull_rom_1D(t: float, p0: float, p1: float, p2: float, p3:
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+static func catmull_rom_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
 	var t_pow2 := t * t
 	
 	return 0.5 * (
@@ -789,7 +901,7 @@ static func spline_catmull_rom_1D_vel(t: float, p0: float, p1: float, p2: float,
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+static func catmull_rom_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
 	return (
 		  (2.0 - 3.0 * t) * p0
 		+ (9.0 * t - 5.0) * p1
@@ -798,7 +910,7 @@ static func spline_catmull_rom_1D_accel(t: float, p0: float, p1: float, p2: floa
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_1D_jerk(p0: float, p1: float, p2: float, p3: float) -> float:
+static func catmull_rom_1D_jerk(p0: float, p1: float, p2: float, p3: float) -> float:
 	return -3.0 * (
 		  p0
 		+ 3.0 * p1
@@ -808,7 +920,7 @@ static func spline_catmull_rom_1D_jerk(p0: float, p1: float, p2: float, p3: floa
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func catmull_rom_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	var t_pow2 := t * t
 	return 0.5 * (
 		  (2.0 * p1)
@@ -818,7 +930,7 @@ static func spline_catmull_rom_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func catmull_rom_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	var t_pow2 := t * t
 	
 	return 0.5 * (
@@ -829,7 +941,7 @@ static func spline_catmull_rom_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Ve
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func catmull_rom_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	return (
 		  (2.0 - 3.0 * t) * p0
 		+ (9.0 * t - 5.0) * p1
@@ -838,7 +950,7 @@ static func spline_catmull_rom_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: 
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func catmull_rom_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	return -3.0 * (
 		  p0
 		+ 3.0 * p1
@@ -848,7 +960,7 @@ static func spline_catmull_rom_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func catmull_rom_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	var t_pow2 := t * t
 	return 0.5 * (
 		  (2.0 * p1)
@@ -858,7 +970,7 @@ static func spline_catmull_rom_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func catmull_rom_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	var t_pow2 := t * t
 	
 	return 0.5 * (
@@ -869,7 +981,7 @@ static func spline_catmull_rom_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Ve
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func catmull_rom_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	return (
 		  (2.0 - 3.0 * t) * p0
 		+ (9.0 * t - 5.0) * p1
@@ -878,7 +990,7 @@ static func spline_catmull_rom_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: 
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func catmull_rom_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	return -3.0 * (
 		  p0
 		+ 3.0 * p1
@@ -888,7 +1000,7 @@ static func spline_catmull_rom_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func catmull_rom_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	var t_pow2 := t * t
 	return 0.5 * (
 		  (2.0 * p1)
@@ -898,7 +1010,7 @@ static func spline_catmull_rom_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func catmull_rom_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	var t_pow2 := t * t
 	
 	return 0.5 * (
@@ -909,7 +1021,7 @@ static func spline_catmull_rom_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Ve
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func catmull_rom_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	return (
 		  (2.0 - 3.0 * t) * p0
 		+ (9.0 * t - 5.0) * p1
@@ -918,7 +1030,7 @@ static func spline_catmull_rom_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: 
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Catmull-Rom spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_catmull_rom_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func catmull_rom_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	return -3.0 * (
 		  p0
 		+ 3.0 * p1
@@ -936,7 +1048,7 @@ static func spline_catmull_rom_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_1D(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
+static func cubic_bezier_1D(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
 	var u := 1.0 - t
 	var u_pow2 := u * u
 	var t_pow2 := t * t
@@ -949,7 +1061,7 @@ static func spline_cubic_bezier_1D(t: float, p0: float, p1: float, p2: float, p3
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
+static func cubic_bezier_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
 	var u := 1.0 - t
 	return 3.0 * (
 		  u * u 			* (p1 - p0)
@@ -958,7 +1070,7 @@ static func spline_cubic_bezier_1D_vel(t: float, p0: float, p1: float, p2: float
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
+static func cubic_bezier_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
 	var u := 1.0 - t
 	return 6.0 * (
 		  u * (p2 - 2.0 * p1 + p0)
@@ -966,12 +1078,12 @@ static func spline_cubic_bezier_1D_accel(t: float, p0: float, p1: float, p2: flo
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_1D_jerk(p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
+static func cubic_bezier_1D_jerk(p0: float, p1: float, p2: float, p3: float, r0 := 1.0, r1 := 1.0, r2 := 1.0, r3 := 1.0) -> float:
 	return 6.0 * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func cubic_bezier_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	var u := 1.0 - t
 	var u_pow2 := u * u
 	var t_pow2 := t * t
@@ -984,7 +1096,7 @@ static func spline_cubic_bezier_2D(t: float, p0: Vector2, p1: Vector2, p2: Vecto
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func cubic_bezier_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	var u := 1.0 - t
 	return 3.0 * (
 		  u * u 			* (p1 - p0)
@@ -993,7 +1105,7 @@ static func spline_cubic_bezier_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: V
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func cubic_bezier_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	var u := 1.0 - t
 	return 6.0 * (
 		  u * (p2 - 2.0 * p1 + p0)
@@ -1001,12 +1113,12 @@ static func spline_cubic_bezier_2D_accel(t: float, p0: Vector2, p1: Vector2, p2:
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+static func cubic_bezier_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
 	return 6.0 * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func cubic_bezier_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	var u := 1.0 - t
 	var u_pow2 := u * u
 	var t_pow2 := t * t
@@ -1019,7 +1131,7 @@ static func spline_cubic_bezier_3D(t: float, p0: Vector3, p1: Vector3, p2: Vecto
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func cubic_bezier_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	var u := 1.0 - t
 	return 3.0 * (
 		  u * u 			* (p1 - p0)
@@ -1028,7 +1140,7 @@ static func spline_cubic_bezier_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: V
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func cubic_bezier_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	var u := 1.0 - t
 	return 6.0 * (
 		  u * (p2 - 2.0 * p1 + p0)
@@ -1036,12 +1148,12 @@ static func spline_cubic_bezier_3D_accel(t: float, p0: Vector3, p1: Vector3, p2:
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+static func cubic_bezier_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
 	return 6.0 * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func cubic_bezier_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	var u := 1.0 - t
 	var u_pow2 := u * u
 	var t_pow2 := t * t
@@ -1054,7 +1166,7 @@ static func spline_cubic_bezier_4D(t: float, p0: Vector4, p1: Vector4, p2: Vecto
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func cubic_bezier_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	var u := 1.0 - t
 	return 3.0 * (
 		  u * u 			* (p1 - p0)
@@ -1063,7 +1175,7 @@ static func spline_cubic_bezier_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: V
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func cubic_bezier_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	var u := 1.0 - t
 	return 6.0 * (
 		  u * (p2 - 2.0 * p1 + p0)
@@ -1071,7 +1183,7 @@ static func spline_cubic_bezier_4D_accel(t: float, p0: Vector4, p1: Vector4, p2:
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic Beziér spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_bezier_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+static func cubic_bezier_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
 	return 6.0 * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
 
 # --------------------------------------------------------------------------------------------------
@@ -1084,8 +1196,8 @@ static func spline_cubic_bezier_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_1D(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
-	return spline_cubic_bezier_1D(t,
+static func cubic_b_spline_1D(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+	return cubic_bezier_1D(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1093,8 +1205,8 @@ static func spline_cubic_b_spline_1D(t: float, p0: float, p1: float, p2: float, 
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
-	return spline_cubic_bezier_1D_vel(t,
+static func cubic_b_spline_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+	return cubic_bezier_1D_vel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1102,8 +1214,8 @@ static func spline_cubic_b_spline_1D_vel(t: float, p0: float, p1: float, p2: flo
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
-	return spline_cubic_bezier_1D_accel(t,
+static func cubic_b_spline_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float) -> float:
+	return cubic_bezier_1D_accel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1111,8 +1223,8 @@ static func spline_cubic_b_spline_1D_accel(t: float, p0: float, p1: float, p2: f
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_1D_jerk(p0: float, p1: float, p2: float, p3: float) -> float:
-	return spline_cubic_bezier_1D_jerk(
+static func cubic_b_spline_1D_jerk(p0: float, p1: float, p2: float, p3: float) -> float:
+	return cubic_bezier_1D_jerk(
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1121,8 +1233,8 @@ static func spline_cubic_b_spline_1D_jerk(p0: float, p1: float, p2: float, p3: f
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
-	return spline_cubic_bezier_2D(t,
+static func cubic_b_spline_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+	return cubic_bezier_2D(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1130,8 +1242,8 @@ static func spline_cubic_b_spline_2D(t: float, p0: Vector2, p1: Vector2, p2: Vec
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
-	return spline_cubic_bezier_2D_vel(t,
+static func cubic_b_spline_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+	return cubic_bezier_2D_vel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1139,8 +1251,8 @@ static func spline_cubic_b_spline_2D_vel(t: float, p0: Vector2, p1: Vector2, p2:
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
-	return spline_cubic_bezier_2D_accel(t,
+static func cubic_b_spline_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+	return cubic_bezier_2D_accel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1148,8 +1260,8 @@ static func spline_cubic_b_spline_2D_accel(t: float, p0: Vector2, p1: Vector2, p
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
-	return spline_cubic_bezier_2D_jerk(
+static func cubic_b_spline_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> Vector2:
+	return cubic_bezier_2D_jerk(
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1158,8 +1270,8 @@ static func spline_cubic_b_spline_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2,
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
-	return spline_cubic_bezier_3D(t,
+static func cubic_b_spline_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+	return cubic_bezier_3D(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1167,8 +1279,8 @@ static func spline_cubic_b_spline_3D(t: float, p0: Vector3, p1: Vector3, p2: Vec
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
-	return spline_cubic_bezier_3D_vel(t,
+static func cubic_b_spline_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+	return cubic_bezier_3D_vel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1176,8 +1288,8 @@ static func spline_cubic_b_spline_3D_vel(t: float, p0: Vector3, p1: Vector3, p2:
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
-	return spline_cubic_bezier_3D_accel(t,
+static func cubic_b_spline_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+	return cubic_bezier_3D_accel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1185,8 +1297,8 @@ static func spline_cubic_b_spline_3D_accel(t: float, p0: Vector3, p1: Vector3, p
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
-	return spline_cubic_bezier_3D_jerk(
+static func cubic_b_spline_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3) -> Vector3:
+	return cubic_bezier_3D_jerk(
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1195,8 +1307,8 @@ static func spline_cubic_b_spline_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3,
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
-	return spline_cubic_bezier_4D(t,
+static func cubic_b_spline_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+	return cubic_bezier_4D(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1204,8 +1316,8 @@ static func spline_cubic_b_spline_4D(t: float, p0: Vector4, p1: Vector4, p2: Vec
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
-	return spline_cubic_bezier_4D_vel(t,
+static func cubic_b_spline_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+	return cubic_bezier_4D_vel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1213,8 +1325,8 @@ static func spline_cubic_b_spline_4D_vel(t: float, p0: Vector4, p1: Vector4, p2:
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
-	return spline_cubic_bezier_4D_accel(t,
+static func cubic_b_spline_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+	return cubic_bezier_4D_accel(t,
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1222,8 +1334,8 @@ static func spline_cubic_b_spline_4D_accel(t: float, p0: Vector4, p1: Vector4, p
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Cubic B-Spline defined by
 ## [param p0], [param p1], [param p2], and [param p3].
-static func spline_cubic_b_spline_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
-	return spline_cubic_bezier_4D_jerk(
+static func cubic_b_spline_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4) -> Vector4:
+	return cubic_bezier_4D_jerk(
 		_ONE_SIXTH * (p0 + 4.0 * p1 + p2),
 		_ONE_THIRD * (2.0 * p1 + p2),
 		_ONE_THIRD * (p1 + 2.0 * p2),
@@ -1240,7 +1352,7 @@ static func spline_cubic_b_spline_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4,
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_1D(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
+static func hermite_1D(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
 	var t_pow2 := t * t
 	var t_pow3 := t_pow2 * t
 	return (
@@ -1251,7 +1363,7 @@ static func spline_hermite_1D(t: float, p0: float, v0: float, p1: float, v1: flo
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_1D_vel(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
+static func hermite_1D_vel(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
 	var u := 1.0 - t
 	var t_pow2 := t * t
 	
@@ -1263,7 +1375,7 @@ static func spline_hermite_1D_vel(t: float, p0: float, v0: float, p1: float, v1:
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_1D_accel(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
+static func hermite_1D_accel(t: float, p0: float, v0: float, p1: float, v1: float) -> float:
 	var t_times2 := 2.0 * t
 	
 	return 6.0 * (
@@ -1274,12 +1386,12 @@ static func spline_hermite_1D_accel(t: float, p0: float, v0: float, p1: float, v
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_1D_jerk(p0: float, v0: float, p1: float, v1: float) -> float:
+static func hermite_1D_jerk(p0: float, v0: float, p1: float, v1: float) -> float:
 	return 6.0 * (2.0 * p0 - 2.0 * p1 + v0 + v1)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_2D(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
+static func hermite_2D(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
 	var t_pow2 := t * t
 	var t_pow3 := t_pow2 * t
 	return (
@@ -1290,7 +1402,7 @@ static func spline_hermite_2D(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_2D_vel(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
+static func hermite_2D_vel(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
 	var u := 1.0 - t
 	var t_pow2 := t * t
 	
@@ -1302,7 +1414,7 @@ static func spline_hermite_2D_vel(t: float, p0: Vector2, v0: Vector2, p1: Vector
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_2D_accel(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
+static func hermite_2D_accel(t: float, p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
 	var t_times2 := 2.0 * t
 	
 	return 6.0 * (
@@ -1313,12 +1425,12 @@ static func spline_hermite_2D_accel(t: float, p0: Vector2, v0: Vector2, p1: Vect
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_2D_jerk(p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
+static func hermite_2D_jerk(p0: Vector2, v0: Vector2, p1: Vector2, v1: Vector2) -> Vector2:
 	return 6.0 * (2.0 * p0 - 2.0 * p1 + v0 + v1)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_3D(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
+static func hermite_3D(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
 	var t_pow2 := t * t
 	var t_pow3 := t_pow2 * t
 	return (
@@ -1329,7 +1441,7 @@ static func spline_hermite_3D(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_3D_vel(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
+static func hermite_3D_vel(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
 	var u := 1.0 - t
 	var t_pow2 := t * t
 	
@@ -1341,7 +1453,7 @@ static func spline_hermite_3D_vel(t: float, p0: Vector3, v0: Vector3, p1: Vector
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_3D_accel(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
+static func hermite_3D_accel(t: float, p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
 	var t_times2 := 2.0 * t
 	
 	return 6.0 * (
@@ -1352,12 +1464,12 @@ static func spline_hermite_3D_accel(t: float, p0: Vector3, v0: Vector3, p1: Vect
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_3D_jerk(p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
+static func hermite_3D_jerk(p0: Vector3, v0: Vector3, p1: Vector3, v1: Vector3) -> Vector3:
 	return 6.0 * (2.0 * p0 - 2.0 * p1 + v0 + v1)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_4D(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
+static func hermite_4D(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
 	var t_pow2 := t * t
 	var t_pow3 := t_pow2 * t
 	return (
@@ -1368,7 +1480,7 @@ static func spline_hermite_4D(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v
 	)
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_4D_vel(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
+static func hermite_4D_vel(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
 	var u := 1.0 - t
 	var t_pow2 := t * t
 	
@@ -1380,7 +1492,7 @@ static func spline_hermite_4D_vel(t: float, p0: Vector4, v0: Vector4, p1: Vector
 	)
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_4D_accel(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
+static func hermite_4D_accel(t: float, p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
 	var t_times2 := 2.0 * t
 	
 	return 6.0 * (
@@ -1391,7 +1503,7 @@ static func spline_hermite_4D_accel(t: float, p0: Vector4, v0: Vector4, p1: Vect
 	)
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional Hermite spline defined by
 ## [param p0], [param v0], [param p1], and [param v1].
-static func spline_hermite_4D_jerk(p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
+static func hermite_4D_jerk(p0: Vector4, v0: Vector4, p1: Vector4, v1: Vector4) -> Vector4:
 	return 6.0 * (2.0 * p0 - 2.0 * p1 + v0 + v1)
 
 # --------------------------------------------------------------------------------------------------
@@ -1407,14 +1519,14 @@ static func spline_hermite_4D_jerk(p0: Vector4, v0: Vector4, p1: Vector4, v1: Ve
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_1D(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
+static func kochanek_bartels_1D(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_1D(t,
+	return hermite_1D(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1425,14 +1537,14 @@ static func spline_kochanek_bartels_1D(t: float, p0: float, p1: float, p2: float
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
+static func kochanek_bartels_1D_vel(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_1D_vel(t,
+	return hermite_1D_vel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1443,14 +1555,14 @@ static func spline_kochanek_bartels_1D_vel(t: float, p0: float, p1: float, p2: f
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
+static func kochanek_bartels_1D_accel(t: float, p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_1D_accel(t,
+	return hermite_1D_accel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1461,14 +1573,14 @@ static func spline_kochanek_bartels_1D_accel(t: float, p0: float, p1: float, p2:
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_1D_jerk(p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
+static func kochanek_bartels_1D_jerk(p0: float, p1: float, p2: float, p3: float, tension: float, bias: float, continuity: float) -> float:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_1D_jerk(
+	return hermite_1D_jerk(
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1480,14 +1592,14 @@ static func spline_kochanek_bartels_1D_jerk(p0: float, p1: float, p2: float, p3:
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
+static func kochanek_bartels_2D(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_2D(t,
+	return hermite_2D(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1498,14 +1610,14 @@ static func spline_kochanek_bartels_2D(t: float, p0: Vector2, p1: Vector2, p2: V
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
+static func kochanek_bartels_2D_vel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_2D_vel(t,
+	return hermite_2D_vel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1516,14 +1628,14 @@ static func spline_kochanek_bartels_2D_vel(t: float, p0: Vector2, p1: Vector2, p
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
+static func kochanek_bartels_2D_accel(t: float, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_2D_accel(t,
+	return hermite_2D_accel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1534,14 +1646,14 @@ static func spline_kochanek_bartels_2D_accel(t: float, p0: Vector2, p1: Vector2,
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
+static func kochanek_bartels_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, tension: float, bias: float, continuity: float) -> Vector2:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_2D_jerk(
+	return hermite_2D_jerk(
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1553,14 +1665,14 @@ static func spline_kochanek_bartels_2D_jerk(p0: Vector2, p1: Vector2, p2: Vector
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
+static func kochanek_bartels_3D(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_3D(t,
+	return hermite_3D(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1571,14 +1683,14 @@ static func spline_kochanek_bartels_3D(t: float, p0: Vector3, p1: Vector3, p2: V
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
+static func kochanek_bartels_3D_vel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_3D_vel(t,
+	return hermite_3D_vel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1589,14 +1701,14 @@ static func spline_kochanek_bartels_3D_vel(t: float, p0: Vector3, p1: Vector3, p
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
+static func kochanek_bartels_3D_accel(t: float, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_3D_accel(t,
+	return hermite_3D_accel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1607,14 +1719,14 @@ static func spline_kochanek_bartels_3D_accel(t: float, p0: Vector3, p1: Vector3,
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
+static func kochanek_bartels_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, tension: float, bias: float, continuity: float) -> Vector3:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_3D_jerk(
+	return hermite_3D_jerk(
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1626,14 +1738,14 @@ static func spline_kochanek_bartels_3D_jerk(p0: Vector3, p1: Vector3, p2: Vector
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
+static func kochanek_bartels_4D(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_4D(t,
+	return hermite_4D(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1644,14 +1756,14 @@ static func spline_kochanek_bartels_4D(t: float, p0: Vector4, p1: Vector4, p2: V
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
+static func kochanek_bartels_4D_vel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_4D_vel(t,
+	return hermite_4D_vel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1662,14 +1774,14 @@ static func spline_kochanek_bartels_4D_vel(t: float, p0: Vector4, p1: Vector4, p
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
+static func kochanek_bartels_4D_accel(t: float, p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_4D_accel(t,
+	return hermite_4D_accel(t,
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1680,14 +1792,14 @@ static func spline_kochanek_bartels_4D_accel(t: float, p0: Vector4, p1: Vector4,
 ## [param tension] changes the length of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (round to tight corners).[br]
 ## [param bias] changes the direction of the computed tangent vectors. Usually within the range [code][-1, 1][/code] (pre- to post-shooting the knots).[br]
 ## [param continuity] changes the sharpness in change between tangents. Usually within the range [code][-1, 1][/code] (boxed to inverted corners).[br]
-static func spline_kochanek_bartels_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
+static func kochanek_bartels_4D_jerk(p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4, tension: float, bias: float, continuity: float) -> Vector4:
 	var actual_tension := 1.0 - tension
 	var add_bias := 1.0 + bias
 	var sub_bias := 1.0 - bias
 	var add_cont := 1.0 + continuity
 	var sub_cont := 1.0 - continuity
 	
-	return spline_hermite_4D_jerk(
+	return hermite_4D_jerk(
 		p1,
 		0.5 * (actual_tension * add_bias * add_cont) * (p1 - p0) + 0.5 * (actual_tension * sub_bias * sub_cont) * (p2 - p1),
 		p2,
@@ -1859,7 +1971,7 @@ class Biarc2D:
 		return result
 	
 	func evaluate_velocity(t: float) -> Vector2:
-		return (evaluate_position(t + 0.0001) - evaluate_position(t)) / 0.0001
+		return (evaluate_position(t + SPLINES_EPSILON) - evaluate_position(t)) / SPLINES_EPSILON
 		# REMARK: There's likely an exact solution to this problem without having to evaluate position. WIP below.
 		#region WIP Velocity
 		#var result := Vector2()
@@ -1889,12 +2001,15 @@ class Biarc2D:
 		#endregion
 	
 	func evaluate_acceleration(t: float) -> Vector2:
-		return (evaluate_velocity(t + 0.0001) - evaluate_velocity(t)) / 0.0001
+		return (evaluate_velocity(t + SPLINES_EPSILON) - evaluate_velocity(t)) / SPLINES_EPSILON
 	
 	func evaluate_jerk(t: float) -> Vector2:
-		return (evaluate_acceleration(t + 0.0001) - evaluate_acceleration(t)) / 0.0001
+		return (evaluate_acceleration(t + SPLINES_EPSILON) - evaluate_acceleration(t)) / SPLINES_EPSILON
 	
 	func evaluate_length(t: float) -> float:
+		if is_nan(total_arclength):
+			return 0.0
+		
 		var cur_dist := t * total_arclength
 		
 		if cur_dist < arc0.get_arclength():
@@ -1908,39 +2023,48 @@ class Biarc2D:
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_2D(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+static func biarc_2D(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
 	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_position(t)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_2D_cached(t: float, biarc: Biarc2D) -> Vector2:
+static func biarc_2D_cached(t: float, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_position(t)
 
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_2D_vel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+static func biarc_2D_vel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
 	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_velocity(t)
 
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_2D_vel_cached(t: float, biarc: Biarc2D) -> Vector2:
+static func biarc_2D_vel_cached(t: float, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_velocity(t)
 
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_2D_accel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+static func biarc_2D_accel(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
 	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_acceleration(t)
 
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_2D_accel_cached(t: float, biarc: Biarc2D) -> Vector2:
+static func biarc_2D_accel_cached(t: float, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_acceleration(t)
 
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
+static func biarc_2D_jerk(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> Vector2:
 	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_jerk(t)
 
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_2D_jerk_cached(t: float, biarc: Biarc2D) -> Vector2:
+static func biarc_2D_jerk_cached(t: float, biarc: Biarc2D) -> Vector2:
 	return biarc.evaluate_jerk(t)
+
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func biarc_2D_length(t: float, p0: Vector2, tan0: Vector2, p1: Vector2, tan1: Vector2) -> float:
+	return Biarc2D.new(p0, tan0, p1, tan1).evaluate_length(t)
+
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional biarc spline defined by the given [param biarc].
+static func biarc_2D_length_cached(t: float, biarc: Biarc2D) -> float:
+	return biarc.evaluate_length(t)
 
 class Arc3D:
 	var _point := Vector3()
@@ -2123,15 +2247,18 @@ class Biarc3D:
 		return result
 	
 	func evaluate_velocity(t: float) -> Vector3:
-		return (evaluate_position(t + 0.0001) - evaluate_position(t)) / 0.0001
+		return (evaluate_position(t + SPLINES_EPSILON) - evaluate_position(t)) / SPLINES_EPSILON
 	
 	func evaluate_acceleration(t: float) -> Vector3:
-		return (evaluate_velocity(t + 0.0001) - evaluate_velocity(t)) / 0.0001
+		return (evaluate_velocity(t + SPLINES_EPSILON) - evaluate_velocity(t)) / SPLINES_EPSILON
 	
 	func evaluate_jerk(t: float) -> Vector3:
-		return (evaluate_acceleration(t + 0.0001) - evaluate_acceleration(t)) / 0.0001
+		return (evaluate_acceleration(t + SPLINES_EPSILON) - evaluate_acceleration(t)) / SPLINES_EPSILON
 	
 	func evaluate_length(t: float) -> float:
+		if is_nan(total_arclength):
+			return 0.0
+		
 		var cur_dist := t * total_arclength
 		
 		if cur_dist < arc0.get_arclength():
@@ -2145,39 +2272,48 @@ class Biarc3D:
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_3D(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+static func biarc_3D(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
 	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_position(t)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_3D_cached(t: float, biarc: Biarc3D) -> Vector3:
+static func biarc_3D_cached(t: float, biarc: Biarc3D) -> Vector3:
 	return biarc.evaluate_position(t)
 
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_3D_vel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+static func biarc_3D_vel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
 	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_velocity(t)
 
 ## Returns the velocity at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_3D_vel_cached(t: float, biarc: Biarc3D) -> Vector3:
+static func biarc_3D_vel_cached(t: float, biarc: Biarc3D) -> Vector3:
 	return biarc.evaluate_velocity(t)
 
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_3D_accel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+static func biarc_3D_accel(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
 	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_acceleration(t)
 
 ## Returns the acceleration at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_3D_accel_cached(t: float, biarc: Biarc3D) -> Vector3:
+static func biarc_3D_accel_cached(t: float, biarc: Biarc3D) -> Vector3:
 	return biarc.evaluate_acceleration(t)
 
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
-static func spline_biarc_3D_jerk(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
+static func biarc_3D_jerk(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> Vector3:
 	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_jerk(t)
 
 ## Returns the jerk at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
-static func spline_biarc_3D_jerk_cached(t: float, biarc: Biarc3D) -> Vector3:
+static func biarc_3D_jerk_cached(t: float, biarc: Biarc3D) -> Vector3:
 	return biarc.evaluate_jerk(t)
+
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
+## [param p0], [param tan0], [param p1], and [param tan1].
+static func biarc_3D_length(t: float, p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> float:
+	return Biarc3D.new(p0, tan0, p1, tan1).evaluate_length(t)
+
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by the given [param biarc].
+static func biarc_3D_length_cached(t: float, biarc: Biarc3D) -> float:
+	return biarc.evaluate_length(t)
 
 # --------------------------------------------------------------------------------------------------
 #endregion

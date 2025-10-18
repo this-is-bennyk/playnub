@@ -38,15 +38,24 @@ enum CubicBezierKinkResolution
 
 ## The kind of spline to evaluate.
 @export
-var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL
+var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL:
+	set(value):
+		spline_type = value
+		_dirty = true
 
 @export
-var closed := false
+var closed := false:
+	set(value):
+		closed = value
+		_dirty = true
 
 @export_group("Rationalization")
 
 @export_custom(PROPERTY_HINT_GROUP_ENABLE, "")
-var rationalization_enabled := false
+var rationalization_enabled := false:
+	set(value):
+		rationalization_enabled = value
+		_dirty = true
 
 @export
 var ratios := PackedFloat64Array():
@@ -62,10 +71,14 @@ var ratios := PackedFloat64Array():
 					value[i] = 1.0
 			
 		ratios = value
+		_dirty = true
 
 @export_group("Cardinal", "cardinal_")
 
-@export var cardinal_tension := 0.5
+@export var cardinal_tension := 0.5:
+	set(value):
+		cardinal_tension = value
+		_dirty = true
 
 @export_group("Cubic Beziér", "cubic_bezier_")
 
@@ -73,7 +86,7 @@ var ratios := PackedFloat64Array():
 	set(value):
 		cubic_bezier_allow_kinks = value
 		
-		if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIER or cubic_bezier_allow_kinks:
+		if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
 			return
 		
 		var i := 0
@@ -82,26 +95,46 @@ var ratios := PackedFloat64Array():
 		while i < size:
 			set_control_point(i, get_control_point(i))
 			i += 1
+		
+		_dirty = true
 
 # kink resolution: closest neighbor, farthest neighbor, equidistant (take avg dist and apply to both)
 
 @export_group("Cubic B-Spline", "cubic_b_spline_")
 
-@export var cubic_b_spline_non_uniform := true
+@export var cubic_b_spline_non_uniform := true:
+	set(value):
+		cubic_b_spline_non_uniform = value
+		_dirty = true
 
 @export_group("Kochanek-Bartels", "kochanek_bartels_")
 
 @export
-var kochanek_bartels_tension := 0.0
+var kochanek_bartels_tension := 0.0:
+	set(value):
+		kochanek_bartels_tension = value
+		_dirty = true
 @export
-var kochanek_bartels_bias := 0.0
+var kochanek_bartels_bias := 0.0:
+	set(value):
+		kochanek_bartels_bias = value
+		_dirty = true
 @export
-var kochanek_bartels_continuity := 0.0
+var kochanek_bartels_continuity := 0.0:
+	set(value):
+		kochanek_bartels_continuity = value
+		_dirty = true
 
 @export_group("Tangential Splines", "tangential_splines_")
 
 @export
-var tangential_splines_relative_tangents := true
+var tangential_splines_relative_tangents := true:
+	set(value):
+		tangential_splines_relative_tangents = value
+		_dirty = true
+
+var _length_table := PackedFloat64Array()
+var _dirty := false
 
 @abstract
 func evaluate_position(t: float) -> Variant
@@ -116,9 +149,6 @@ func evaluate_acceleration(t: float) -> Variant
 func evaluate_jerk(t: float) -> Variant
 
 @abstract
-func evaluate_length(t: float) -> float
-
-@abstract
 func get_control_point_count() -> int
 
 @abstract
@@ -127,11 +157,18 @@ func get_control_point(index: int) -> Variant
 @abstract
 func _set_control_point_direct(index: int, pos) -> void
 
+@abstract
+func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float
+
 func set_control_point(index: int, pos) -> void:
-	var prev_pos := get_control_point(index)
-	_set_control_point_direct(index, pos)
+	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
 	
-	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIER or cubic_bezier_allow_kinks:
+	var prev_pos := get_control_point(index)
+	
+	_set_control_point_direct(index, pos)
+	_dirty = true
+	
+	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
 		return
 	
 	var size := get_control_point_count()
@@ -172,8 +209,38 @@ func set_control_point(index: int, pos) -> void:
 			
 		_set_control_point_direct(opposite, center_pos - dir_cur_to_center * dist_center_to_neighbor)
 
+func evaluate_length(t: float) -> float:
+	if get_control_point_count() <= 0:
+		return 0.0
+	
+	_recache_length()
+	
+	if _length_table.is_empty():
+		return _evaluate_segment_length(t, true)
+	
+	var segment_index := int(t * _length_table.size())
+	var length_of_prev_segment := 0.0
+	
+	if segment_index >= get_control_point_count():
+		length_of_prev_segment = _length_table[_length_table.size() - 1]
+	elif segment_index > 0:
+		length_of_prev_segment = _length_table[segment_index - 1]
+	
+	return length_of_prev_segment + _evaluate_segment_length(t, true)
+
+func get_total_length() -> float:
+	if get_control_point_count() <= 0:
+		return 0.0
+	
+	_recache_length()
+	
+	if _length_table.is_empty():
+		return _evaluate_segment_length(1.0, true)
+	
+	return _length_table[_length_table.size() - 1]
+
 func is_nurbs() -> bool:
-	return spline_type == PlaynubSplines.SplineType.CUBIC_B_SPLINE \
+	return spline_type == PlaynubSplines.SplineType.B_SPLINE \
 		and cubic_b_spline_non_uniform and rationalization_enabled and not closed
 
 func is_tangential_spline() -> bool:
@@ -189,11 +256,15 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 	result.e2 = kochanek_bartels_bias * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
 	result.e3 = kochanek_bartels_continuity * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
 	
-	var nurbs := is_nurbs()
-	var size := get_control_point_count() + int(closed) + (6 * int(nurbs))
+	var relative_tangents := is_tangential_spline() and tangential_splines_relative_tangents
+	result.relative_tangents_mult = float(relative_tangents)
 	
-	if spline_type == PlaynubSplines.SplineType.CUBIC_BEZIER:
-		var num_segments := ceili(float(size) / 3.0)
+	var nurbs := is_nurbs()
+	var nurbs_size_adjust := PlaynubSplines.NUM_NURBS_NON_UNIFORM_POINTS * int(nurbs)
+	var size := get_control_point_count() + int(closed) + nurbs_size_adjust
+	
+	if spline_type == PlaynubSplines.SplineType.CUBIC_BEZIÉR:
+		var num_segments := ceili(float(size) * PlaynubSplines._ONE_THIRD)
 		
 		var abs_segment_t := t * float(num_segments)
 		var cur_segment := int(abs_segment_t)
@@ -201,16 +272,16 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 		
 		result.t = segment_t
 		
-		result.x0 = clampi(cur_segment * 3    , 0, size - 1)
-		result.x1 = clampi(cur_segment * 3 + 1, 0, size - 1)
-		result.x2 = clampi(cur_segment * 3 + 2, 0, size - 1)
-		result.x3 = clampi(cur_segment * 3 + 3, 0, size - 1)
+		result.x0 = clampi(cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE    , 0, size - 1)
+		result.x1 = clampi(cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 1, 0, size - 1)
+		result.x2 = clampi(cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 2, 0, size - 1)
+		result.x3 = clampi(cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 3, 0, size - 1)
 		
 		if closed:
-			result.x0 = cur_segment * 3
-			result.x1 = cur_segment * 3 + 1
-			result.x2 = cur_segment * 3 + 2
-			result.x3 = cur_segment * 3 + 3
+			result.x0 = cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE
+			result.x1 = cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 1
+			result.x2 = cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 2
+			result.x3 = cur_segment * PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE + 3
 			
 			result.x0 = 0 if result.x0 >= size - 1 else result.x0
 			result.x1 = 0 if result.x1 >= size - 1 else result.x1
@@ -245,13 +316,14 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 		
 	else:
 		var cur := int(t * float(size))
+		var nurbs_start_offset := PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE * int(nurbs)
 		
 		result.t = (t * float(size)) - float(cur)
 		
-		result.x0 = clampi(cur - 1 - (3 * int(nurbs)), 0, size - 1 - (6 * int(nurbs)))
-		result.x1 = clampi(cur     - (3 * int(nurbs)), 0, size - 1 - (6 * int(nurbs)))
-		result.x2 = clampi(cur + 1 - (3 * int(nurbs)), 0, size - 1 - (6 * int(nurbs)))
-		result.x3 = clampi(cur + 2 - (3 * int(nurbs)), 0, size - 1 - (6 * int(nurbs)))
+		result.x0 = clampi(cur - 1 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
+		result.x1 = clampi(cur     - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
+		result.x2 = clampi(cur + 1 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
+		result.x3 = clampi(cur + 2 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
 		
 		if closed:
 			result.x0 = wrapi(cur - 1, 0, size - int(closed))
@@ -272,3 +344,27 @@ class SplineEvaluationParameters:
 	var e1: Variant = null
 	var e2 := 0.0
 	var e3 := 0.0
+	
+	var relative_tangents_mult := 0.0
+
+func _recache_length() -> void:
+	if not _dirty:
+		return
+	
+	var is_cubic_bezier := spline_type == PlaynubSplines.SplineType.CUBIC_BEZIÉR
+	var is_tangential := is_tangential_spline()
+	var segment_size := maxi(1, PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE * int(is_cubic_bezier) + PlaynubSplines.TANGENTIAL_SEGMENT_SIZE * int(is_tangential))
+	
+	_length_table.resize(int(float(get_control_point_count()) / float(segment_size)))
+	
+	var i := 0
+	var size := float(_length_table.size())
+	
+	while i < _length_table.size():
+		var prev_length := 0.0 if i == 0 else _length_table[i - 1]
+		var cur_length := _evaluate_segment_length(float(i) / size, false)
+		
+		_length_table[i] = prev_length + cur_length
+		i += 1
+	
+	_dirty = false
