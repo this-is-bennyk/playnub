@@ -48,8 +48,11 @@ const RATIO_MIN := 0.001
 
 ## The size of a Cubic Beziér spline segment.
 const CUBIC_BEZIÉR_SEGMENT_SIZE := 3
-## The number of points added for NURBS (3 at the start, 3 at the end).
-const NUM_NURBS_NON_UNIFORM_POINTS := CUBIC_BEZIÉR_SEGMENT_SIZE * 2
+
+## The number of points added to the start and end control points of a non-uniform B-Spline.
+const B_SPLINE_NON_UNIFORM_OFFSET_SIZE := 3
+## The total number of points added to a non-uniform B-Spline.
+const B_SPLINE_NUM_NON_UNIFORM_POINTS := B_SPLINE_NON_UNIFORM_OFFSET_SIZE * 2
 
 ## The size of a spline segment that uses control points and control tangents.
 const TANGENTIAL_SEGMENT_SIZE := 2
@@ -271,6 +274,27 @@ static func eval_rational_1D(type: SplineType, eval: SplineEvaluation, t: float,
 	var result := eval_1D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
+## [param r0], [param r1], [param r2], and [param r3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
+static func length_rational_1D(type: SplineType, t: float,
+	p0: float, p1: float, p2: float, p3: float,
+	r0: float, r1: float, r2: float, r3: float,
+	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+) -> float:
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_rational_1D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		var curr := eval_rational_1D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		sum += absf(curr - prev)
+		
+		i += 1
+	
+	return sum
+
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
@@ -410,8 +434,8 @@ static func length_2D(type: SplineType, t: float,
 	
 	return sum
 
-## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type], with the derivation
-## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
+## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
 ## [param r0], [param r1], [param r2], and [param r3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func eval_rational_2D(type: SplineType, eval: SplineEvaluation, t: float,
@@ -432,6 +456,10 @@ static func eval_rational_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	var result := eval_2D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
+## [param r0], [param r1], [param r2], and [param r3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func length_rational_2D(type: SplineType, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
 	r0: float,   r1: float,   r2: float,   r3: float,
@@ -610,6 +638,27 @@ static func eval_rational_3D(type: SplineType, eval: SplineEvaluation, t: float,
 	var result := eval_3D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
+## [param r0], [param r1], [param r2], and [param r3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
+static func length_rational_3D(type: SplineType, t: float,
+	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
+	r0: float,   r1: float,   r2: float,   r3: float,
+	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+) -> float:
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_rational_3D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		var curr := eval_rational_3D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
+
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
@@ -739,6 +788,27 @@ static func eval_rational_4D(type: SplineType, eval: SplineEvaluation, t: float,
 	
 	var result := eval_4D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
+
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3], with ratios
+## [param r0], [param r1], [param r2], and [param r3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
+static func length_rational_4D(type: SplineType, t: float,
+	p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4,
+	r0: float,   r1: float,   r2: float,   r3: float,
+	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+) -> float:
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_rational_4D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		var curr := eval_rational_4D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
 
 # --------------------------------------------------------------------------------------------------
 #region Cardinal

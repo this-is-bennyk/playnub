@@ -29,11 +29,11 @@ extends Resource
 ## 
 ## This class abstracts out the common behaviors between splines of all dimensions.
 
-enum CubicBezierKinkResolution
+enum CubicBeziérKinkResolution
 {
-	NEAREST_NEIGHBOR,
-	FARTHEST_NEIGHBOR,
-	EQUIDISTANT,
+	NONE,
+	PARTIAL_MIRRORING,
+	FULL_MIRRORING,
 }
 
 ## The kind of spline to evaluate.
@@ -64,16 +64,8 @@ var rationalization_enabled := false:
 @export
 var ratios := PackedFloat64Array():
 	set(value):
-		if value.size() != get_control_point_count():
-			var old_size := value.size()
-			var new_size := get_control_point_count()
-			
-			value.resize(new_size)
-			
-			if new_size > old_size:
-				for i: int in range(old_size, new_size):
-					value[i] = 1.0
-			
+		_match_control_point_count(value, 1.0)
+		
 		ratios = value
 		_dirty = true
 
@@ -88,31 +80,21 @@ var cardinal_tension := 0.5:
 
 @export_group("Cubic Beziér", "cubic_bezier_")
 
-# TODO: Allow individual kink settings at endpoints
-
 @export
-var cubic_bezier_allow_kinks := true:
+var cubic_bezier_kink_resolutions: Array[CubicBeziérKinkResolution] = []:
 	set(value):
-		cubic_bezier_allow_kinks = value
+		_match_control_point_count(value, CubicBeziérKinkResolution.NONE)
 		
-		if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
+		if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR:
+			cubic_bezier_kink_resolutions = value
 			return
-		
-		_kinks_resolved = false
 		
 		var i := 0
 		var size := get_control_point_count()
 		
 		while i < size:
-			set_control_point(i, get_control_point(i))
+			set_control_point_kink_resolution(i, value[i])
 			i += 1
-		
-		_kinks_resolved = true
-		
-		_dirty = true
-
-@export
-var cubic_bezier_kink_resolution := CubicBezierKinkResolution.NEAREST_NEIGHBOR
 
 # kink resolution: closest neighbor, farthest neighbor, equidistant (take avg dist and apply to both)
 
@@ -161,7 +143,6 @@ var tangential_splines_relative_tangents := true:
 		_dirty = true
 
 var _length_table := PackedFloat64Array()
-var _kinks_resolved := true
 var _dirty := false
 
 @abstract
@@ -188,23 +169,21 @@ func _set_control_point_direct(index: int, pos) -> void
 @abstract
 func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float
 
-func set_control_point(index: int, pos) -> void:
+func set_control_point(index: int, pos, ignore_kink_resolution := false) -> void:
 	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
 	
 	var prev_pos := get_control_point(index)
+	_set_control_point_direct(index, pos)
 	
 	_dirty = true
 	
-	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
-		_set_control_point_direct(index, pos)
+	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or ignore_kink_resolution:
 		return
 	
 	var size := get_control_point_count()
 	
 	# If the center is being moved, move its neighbors in the same direction
 	if index % 3 == 0:
-		_set_control_point_direct(index, pos)
-		
 		var prev_neighbor := clampi(index - 1, 0, size - 1)
 		var next_neighbor := clampi(index + 1, 0, size - 1)
 		
@@ -215,33 +194,95 @@ func set_control_point(index: int, pos) -> void:
 		if prev_neighbor == index or next_neighbor == index:
 			return
 		
-		var prev_neighbor_displacement = get_control_point(prev_neighbor) - prev_pos
-		var next_neighbor_displacement = get_control_point(next_neighbor) - prev_pos
+		var is_1D := get_control_point(index) is float
+		var kink_resolution := cubic_bezier_kink_resolutions[index]
 		
-		# Could take the center's displacement and add it to each position, but this is less prone to FP error
-		_set_control_point_direct(prev_neighbor, pos + prev_neighbor_displacement)
-		_set_control_point_direct(next_neighbor, pos + next_neighbor_displacement)
+		var prev_neighbor_pos = get_control_point(prev_neighbor)
+		var next_neighbor_pos = get_control_point(next_neighbor)
+		
+		var prev_neighbor_displacement = prev_neighbor_pos - prev_pos
+		var next_neighbor_displacement = next_neighbor_pos - prev_pos
+		
+		if kink_resolution == CubicBeziérKinkResolution.NONE:
+			# Could take the center's displacement and add it to each position, but this is less prone to FP error
+			_set_control_point_direct(prev_neighbor, pos + prev_neighbor_displacement)
+			_set_control_point_direct(next_neighbor, pos + next_neighbor_displacement)
+		else:
+			var neighbor_dir
+			var neighbor_distance
+			
+			if is_1D:
+				neighbor_dir 		= signf(next_neighbor_pos - prev_neighbor_pos)
+				neighbor_distance 	= absf(next_neighbor_pos - prev_neighbor_pos)
+			else:
+				neighbor_dir 		= prev_neighbor_pos.direction_to(next_neighbor_pos)
+				neighbor_distance 	= prev_neighbor_pos.distance_to(next_neighbor_pos)
+			
+			neighbor_distance *= 0.5
+			
+			if kink_resolution == CubicBeziérKinkResolution.PARTIAL_MIRRORING:
+				if is_1D:
+					neighbor_distance = absf(prev_neighbor_displacement)
+				else:
+					neighbor_distance = prev_neighbor_displacement.length()
+			
+			_set_control_point_direct(prev_neighbor, pos - neighbor_dir * neighbor_distance)
+			
+			if kink_resolution == CubicBeziérKinkResolution.PARTIAL_MIRRORING:
+				if is_1D:
+					neighbor_distance = absf(next_neighbor_displacement)
+				else:
+					neighbor_distance = next_neighbor_displacement.length()
+			
+			_set_control_point_direct(next_neighbor, pos + neighbor_dir * neighbor_distance)
 	
 	# Otherwise a neighbor is being moved, so constrain the opposite neighbor along the line from the center to this neighbor
-	else:
+	elif cubic_bezier_kink_resolutions[index] != CubicBeziérKinkResolution.NONE:
 		var center   := clampi(index + 1 * (-1 * int(index % 3 == 1) + int(index % 3 == 2)), 0, size - 1)
 		var opposite := clampi(index + 2 * (-1 * int(index % 3 == 1) + int(index % 3 == 2)), 0, size - 1)
 		
 		if center == opposite:
 			return
 		
+		var is_1D := get_control_point(index) is float
+		
 		var center_pos = get_control_point(center)
 		var dir_cur_to_center
 		var dist_center_to_neighbor
 		
-		if center_pos is float:
-			dir_cur_to_center		= signf(get_control_point(index) - center_pos)
+		if is_1D:
+			dir_cur_to_center 		= signf(get_control_point(index) - center_pos)
 			dist_center_to_neighbor 	= absf(get_control_point(opposite) - center_pos)
 		else:
-			dir_cur_to_center		= center_pos.direction_to(get_control_point(index))
+			dir_cur_to_center 		= center_pos.direction_to(get_control_point(index))
 			dist_center_to_neighbor 	= center_pos.distance_to(get_control_point(opposite))
-			
+		
+		if cubic_bezier_kink_resolutions[index] == CubicBeziérKinkResolution.FULL_MIRRORING:
+			if is_1D:
+				dist_center_to_neighbor = absf(prev_pos - center_pos)
+			else:
+				dist_center_to_neighbor = center_pos.distance_to(prev_pos)
+		
 		_set_control_point_direct(opposite, center_pos - dir_cur_to_center * dist_center_to_neighbor)
+
+func set_control_point_kink_resolution(index: int, kink_resolution: CubicBeziérKinkResolution) -> void:
+	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
+	
+	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR:
+		cubic_bezier_kink_resolutions[index] = kink_resolution
+		return
+	
+	_match_control_point_count(cubic_bezier_kink_resolutions, CubicBeziérKinkResolution.NONE)
+	
+	if cubic_bezier_kink_resolutions[index] != kink_resolution:
+		set_control_point(index, get_control_point(index))
+		_dirty = true
+	
+	cubic_bezier_kink_resolutions[index] = kink_resolution
+
+func get_control_point_kink_resolution(index: int) -> CubicBeziérKinkResolution:
+	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
+	return cubic_bezier_kink_resolutions[index]
 
 func evaluate_length(t: float) -> float:
 	if get_control_point_count() <= 0:
@@ -273,17 +314,33 @@ func get_total_length() -> float:
 	
 	return _length_table[_length_table.size() - 1]
 
+func is_nubs() -> bool:
+	return spline_type == PlaynubSplines.SplineType.B_SPLINE and b_spline_non_uniform and not closed
+
 func is_nurbs() -> bool:
-	return spline_type == PlaynubSplines.SplineType.B_SPLINE \
-		and b_spline_non_uniform and rationalization_enabled and not closed
+	return is_nubs() and rationalization_enabled
 
 func is_tangential_spline() -> bool:
 	return spline_type == PlaynubSplines.SplineType.HERMITE \
 		or spline_type == PlaynubSplines.SplineType.BIARC_UNCACHED \
 		or spline_type == PlaynubSplines.SplineType.BIARC_CACHED
 
-func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
-	var result := SplineEvaluationParameters.new()
+class EvaluationParameters:
+	var t := 0.0
+	
+	var x0 := 0
+	var x1 := 0
+	var x2 := 0
+	var x3 := 0
+	
+	var e1: Variant = null
+	var e2 := 0.0
+	var e3 := 0.0
+	
+	var relative_tangents_mult := 0.0
+
+func get_evaluation_parameters(t: float) -> EvaluationParameters:
+	var result := EvaluationParameters.new()
 	
 	result.e1 = cardinal_tension * float(spline_type == PlaynubSplines.SplineType.CARDINAL) \
 			  + kochanek_bartels_tension * float(spline_type == PlaynubSplines.SplineType.KOCHANEK_BARTELS)
@@ -293,9 +350,9 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 	var relative_tangents := is_tangential_spline() and tangential_splines_relative_tangents
 	result.relative_tangents_mult = float(relative_tangents)
 	
-	var nurbs := is_nurbs()
-	var nurbs_size_adjust := PlaynubSplines.NUM_NURBS_NON_UNIFORM_POINTS * int(nurbs)
-	var size := get_control_point_count() + int(closed) + nurbs_size_adjust
+	var nubs := is_nubs()
+	var nubs_size_adjust := PlaynubSplines.B_SPLINE_NUM_NON_UNIFORM_POINTS * int(nubs)
+	var size := get_control_point_count() + int(closed) + nubs_size_adjust
 	
 	if spline_type == PlaynubSplines.SplineType.CUBIC_BEZIÉR:
 		var num_segments := ceili(float(size) * PlaynubSplines._ONE_THIRD)
@@ -350,14 +407,14 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 		
 	else:
 		var cur := int(t * float(size))
-		var nurbs_start_offset := PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE * int(nurbs)
+		var nubs_start_offset := PlaynubSplines.B_SPLINE_NON_UNIFORM_OFFSET_SIZE * int(nubs)
 		
 		result.t = (t * float(size)) - float(cur)
 		
-		result.x0 = clampi(cur - 1 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
-		result.x1 = clampi(cur     - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
-		result.x2 = clampi(cur + 1 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
-		result.x3 = clampi(cur + 2 - nurbs_start_offset, 0, size - 1 - nurbs_size_adjust)
+		result.x0 = clampi(cur - 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+		result.x1 = clampi(cur     - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+		result.x2 = clampi(cur + 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+		result.x3 = clampi(cur + 2 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
 		
 		if closed:
 			result.x0 = wrapi(cur - 1, 0, size - int(closed))
@@ -367,30 +424,16 @@ func get_evaluation_parameters(t: float) -> SplineEvaluationParameters:
 	
 	return result
 
-class SplineEvaluationParameters:
-	var t := 0.0
-	
-	var x0 := 0
-	var x1 := 0
-	var x2 := 0
-	var x3 := 0
-	
-	var e1: Variant = null
-	var e2 := 0.0
-	var e3 := 0.0
-	
-	var relative_tangents_mult := 0.0
-
 func _recache_length() -> void:
 	if not _dirty:
 		return
 	
 	var is_cubic_bezier := spline_type == PlaynubSplines.SplineType.CUBIC_BEZIÉR
 	var is_tangential := is_tangential_spline()
-	var nurbs := is_nurbs()
-	var nurbs_size_adjust := PlaynubSplines.NUM_NURBS_NON_UNIFORM_POINTS * int(nurbs)
+	var nubs := is_nubs()
+	var nubs_size_adjust := PlaynubSplines.B_SPLINE_NUM_NON_UNIFORM_POINTS * int(nubs)
 	var segment_size := maxi(1, PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE * int(is_cubic_bezier) + PlaynubSplines.TANGENTIAL_SEGMENT_SIZE * int(is_tangential))
-	var num_segments := float(get_control_point_count() + int(closed) + nurbs_size_adjust) / float(segment_size)
+	var num_segments := float(get_control_point_count() + int(closed) + nubs_size_adjust) / float(segment_size)
 	
 	_length_table.resize(roundi(num_segments))
 	
@@ -405,3 +448,14 @@ func _recache_length() -> void:
 		i += 1
 	
 	_dirty = false
+
+func _match_control_point_count(array: Array, default_value: Variant) -> void:
+	if array.size() != get_control_point_count():
+		var old_size := array.size()
+		var new_size := get_control_point_count()
+		
+		array.resize(new_size)
+		
+		if new_size > old_size:
+			for i: int in range(old_size, new_size):
+				array[i] = default_value
