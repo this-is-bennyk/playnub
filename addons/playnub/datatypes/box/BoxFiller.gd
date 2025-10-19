@@ -58,7 +58,7 @@ func _init() -> void:
 	setup()
 
 ## The function to inherit from to initialize [member data] and [member key].
-## Expose customer parameters with exported variables, then assign them to
+## Expose custom parameters with exported variables, then assign them to
 ## [member data] and [member key] as you see fit. See [method Box.rewrite]
 ## for more information on how to set up those two member variables.
 @abstract

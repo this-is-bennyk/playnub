@@ -43,6 +43,7 @@ var spline_type: PlaynubSplines.SplineType = PlaynubSplines.SplineType.CARDINAL:
 		spline_type = value
 		_dirty = true
 
+## Whether the spline should look back to the beginning.
 @export
 var closed := false:
 	set(value):
@@ -51,12 +52,15 @@ var closed := false:
 
 @export_group("Rationalization")
 
+## Whether control points should have ratios, i.e. "weight" or "gravity", relative to other control points.
 @export_custom(PROPERTY_HINT_GROUP_ENABLE, "")
 var rationalization_enabled := false:
 	set(value):
 		rationalization_enabled = value
 		_dirty = true
 
+## The ratio of each control point relative to its neighbors, if [member rationalization_enabled] is [code]true[/code].
+## Ratios are automatically clamped within the range [code](0, ∞)[/code].
 @export
 var ratios := PackedFloat64Array():
 	set(value):
@@ -75,19 +79,26 @@ var ratios := PackedFloat64Array():
 
 @export_group("Cardinal", "cardinal_")
 
-@export var cardinal_tension := 0.5:
+## How tight or loose the corner around each control point should be in a Cardinal spline.
+@export
+var cardinal_tension := 0.5:
 	set(value):
 		cardinal_tension = value
 		_dirty = true
 
 @export_group("Cubic Beziér", "cubic_bezier_")
 
-@export var cubic_bezier_allow_kinks := true:
+# TODO: Allow individual kink settings at endpoints
+
+@export
+var cubic_bezier_allow_kinks := true:
 	set(value):
 		cubic_bezier_allow_kinks = value
 		
 		if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
 			return
+		
+		_kinks_resolved = false
 		
 		var i := 0
 		var size := get_control_point_count()
@@ -96,29 +107,42 @@ var ratios := PackedFloat64Array():
 			set_control_point(i, get_control_point(i))
 			i += 1
 		
+		_kinks_resolved = true
+		
 		_dirty = true
+
+@export
+var cubic_bezier_kink_resolution := CubicBezierKinkResolution.NEAREST_NEIGHBOR
 
 # kink resolution: closest neighbor, farthest neighbor, equidistant (take avg dist and apply to both)
 
-@export_group("Cubic B-Spline", "cubic_b_spline_")
+@export_group("B-Spline", "b_spline_")
 
-@export var cubic_b_spline_non_uniform := true:
+## Whether the B-Spline should be non-uniform (technically open-uniform, i.e. starts exactly at the beginning
+## point and ends exactly at the ending point).
+@export
+var b_spline_non_uniform := true:
 	set(value):
-		cubic_b_spline_non_uniform = value
+		b_spline_non_uniform = value
 		_dirty = true
 
 @export_group("Kochanek-Bartels", "kochanek_bartels_")
 
+## How tight or loose the corner around each control point should be in a Kochanek-Bartels spline.
 @export
 var kochanek_bartels_tension := 0.0:
 	set(value):
 		kochanek_bartels_tension = value
 		_dirty = true
+
+## How much to the relative left or right the corner around each control point should be in a Kochanek-Bartels spline.
 @export
 var kochanek_bartels_bias := 0.0:
 	set(value):
 		kochanek_bartels_bias = value
 		_dirty = true
+
+## How boxy or inverted the corner around each control point should be in a Kochanek-Bartels spline.
 @export
 var kochanek_bartels_continuity := 0.0:
 	set(value):
@@ -127,6 +151,9 @@ var kochanek_bartels_continuity := 0.0:
 
 @export_group("Tangential Splines", "tangential_splines_")
 
+## Whether control points at odd indices in the array of points should be calculated relative to the previous point in the list
+## (i.e. if [code]true[/code], instead of passing values P0, P1, P2, and P3 directly to the chosen spline function, values P0, (P1 - P0),
+## P2, (P3 - P2) are passed).
 @export
 var tangential_splines_relative_tangents := true:
 	set(value):
@@ -134,6 +161,7 @@ var tangential_splines_relative_tangents := true:
 		_dirty = true
 
 var _length_table := PackedFloat64Array()
+var _kinks_resolved := true
 var _dirty := false
 
 @abstract
@@ -165,18 +193,24 @@ func set_control_point(index: int, pos) -> void:
 	
 	var prev_pos := get_control_point(index)
 	
-	_set_control_point_direct(index, pos)
 	_dirty = true
 	
 	if spline_type != PlaynubSplines.SplineType.CUBIC_BEZIÉR or cubic_bezier_allow_kinks:
+		_set_control_point_direct(index, pos)
 		return
 	
 	var size := get_control_point_count()
 	
 	# If the center is being moved, move its neighbors in the same direction
 	if index % 3 == 0:
+		_set_control_point_direct(index, pos)
+		
 		var prev_neighbor := clampi(index - 1, 0, size - 1)
 		var next_neighbor := clampi(index + 1, 0, size - 1)
+		
+		if closed:
+			prev_neighbor = wrapi(index - 1, 0, size - 1)
+			next_neighbor = wrapi(index + 1, 0, size - 1)
 		
 		if prev_neighbor == index or next_neighbor == index:
 			return
@@ -241,7 +275,7 @@ func get_total_length() -> float:
 
 func is_nurbs() -> bool:
 	return spline_type == PlaynubSplines.SplineType.B_SPLINE \
-		and cubic_b_spline_non_uniform and rationalization_enabled and not closed
+		and b_spline_non_uniform and rationalization_enabled and not closed
 
 func is_tangential_spline() -> bool:
 	return spline_type == PlaynubSplines.SplineType.HERMITE \
