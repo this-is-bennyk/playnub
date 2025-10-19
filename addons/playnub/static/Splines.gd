@@ -44,7 +44,7 @@ const _TWO_THIRDS := 2.0 / 3.0
 const SPLINES_EPSILON := 0.0001
 
 ## The lowest that ratios of a rational spline can be.
-const RATIO_MIN := -0.499
+const RATIO_MIN := 0.001
 
 ## The size of a Cubic Beziér spline segment.
 const CUBIC_BEZIÉR_SEGMENT_SIZE := 3
@@ -141,8 +141,8 @@ enum SplineEvaluation
 	, JERK
 }
 
-## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type], with the derivation
-## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
+## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type],
+## with the derivation defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
 ## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func eval_1D(type: SplineType, eval: SplineEvaluation, t: float,
 	p0: float, p1: float, p2: float, p3: float,
@@ -212,12 +212,15 @@ static func eval_1D(type: SplineType, eval: SplineEvaluation, t: float,
 	assert(false, "Unknown/unimplemented spline type!")
 	return 0.0
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 1-dimensional spline of the given [param type],
+## defined by [param p0], [param p1], [param p2], and [param p3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func length_1D(type: SplineType, t: float,
 	p0: float, p1: float, p2: float, p3: float,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> float:
 	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
-	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.CUBIC_BEZIÉR or type == SplineType.B_SPLINE:
 		var result := 0.0
 		var gauss_legendre_index := 0
 		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
@@ -362,24 +365,9 @@ static func eval_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector2()
 
-static func _chebyshev_eval(derivative: PackedFloat64Array, point: float) -> float:
-		var p_times_2 := 2.0 * point
-		var end := derivative.size() - 1
-		var b1 := 0.0
-		
-		if end % 2 != 0:
-			b1 = derivative[end]
-			end -= 1
-		
-		var b2 := 0.0
-		
-		while end >= 2:
-			b2 = derivative[end] + p_times_2 * b1 - b2
-			b1 = derivative[end - 1] + p_times_2 * b2 - b1
-			end -= 2
-		
-		return derivative[0] + point * b1 - b2
-
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 2-dimensional spline of the given [param type],
+## defined by [param p0], [param p1], [param p2], and [param p3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func length_2D(type: SplineType, t: float,
 	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
 	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
@@ -393,7 +381,7 @@ static func length_2D(type: SplineType, t: float,
 		return biarc_2D_length_cached(t, biarc)
 	
 	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
-	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.CUBIC_BEZIÉR or type == SplineType.B_SPLINE:
 		var result := 0.0
 		var gauss_legendre_index := 0
 		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
@@ -443,6 +431,23 @@ static func eval_rational_2D(type: SplineType, eval: SplineEvaluation, t: float,
 	
 	var result := eval_2D(type, eval, t, p0 * r0, p1 * r1, p2 * r2, p3 * r3, extra1, extra2, extra3) / basis
 	return result
+
+static func length_rational_2D(type: SplineType, t: float,
+	p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
+	r0: float,   r1: float,   r2: float,   r3: float,
+	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
+) -> float:
+	var sum := 0.0
+	var i := 0
+	
+	while i < CONVERGENCE_SAMPLES:
+		var prev := eval_rational_2D(type, SplineEvaluation.POSITION, t * (float(i)     * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		var curr := eval_rational_2D(type, SplineEvaluation.POSITION, t * (float(i + 1) * CONVERGENCE_STEP), p0, p1, p2, p3, r0, r1, r2, r3, extra1, extra2, extra3)
+		sum += prev.distance_to(curr)
+		
+		i += 1
+	
+	return sum
 
 ## Returns the evaluation at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional spline of the given [param type], with the derivation
 ## defined by [param eval], defined by [param p0], [param p1], [param p2], and [param p3].
@@ -538,6 +543,9 @@ static func eval_3D(type: SplineType, eval: SplineEvaluation, t: float,
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector3()
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional spline of the given [param type],
+## defined by [param p0], [param p1], [param p2], and [param p3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func length_3D(type: SplineType, t: float,
 	p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
 	extra1: Variant = null, extra2 := 0.0, extra3 := 0.0
@@ -551,7 +559,7 @@ static func length_3D(type: SplineType, t: float,
 		return biarc_3D_length_cached(t, biarc)
 	
 	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
-	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+	elif type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.CUBIC_BEZIÉR or type == SplineType.B_SPLINE:
 		var result := 0.0
 		var gauss_legendre_index := 0
 		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2
@@ -673,13 +681,15 @@ static func eval_4D(type: SplineType, eval: SplineEvaluation, t: float,
 	assert(false, "Unknown/unimplemented spline type!")
 	return Vector4()
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of a 4-dimensional spline of the given [param type],
+## defined by [param p0], [param p1], [param p2], and [param p3].
+## Optionally, [param extra1], [param extra2], and [param extra3] may be provided for splines that use them.
 static func length_4D(type: SplineType, t: float,
 	p0: Vector4, p1: Vector4, p2: Vector4, p3: Vector4,
-	r0 := 1.0,   r1 := 1.0,   r2 := 1.0,   r3 := 1.0,
 	extra1 := 0.0, extra2 := 0.0, extra3 := 0.0
 ) -> float:
 	# If we're using a spline best approximated by Gauss-Legendre quadrature (summation), use that
-	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.B_SPLINE:
+	if type == SplineType.CARDINAL or type == SplineType.CATMULL_ROM or type == SplineType.CUBIC_BEZIÉR or type == SplineType.B_SPLINE:
 		var result := 0.0
 		var gauss_legendre_index := 0
 		var num_gauss_legendre_coeffs := GAUSS_LEGENDRE_COEFFICIENTS.size() / 2

@@ -353,9 +353,12 @@ func _recache_length() -> void:
 	
 	var is_cubic_bezier := spline_type == PlaynubSplines.SplineType.CUBIC_BEZIÉR
 	var is_tangential := is_tangential_spline()
+	var nurbs := is_nurbs()
+	var nurbs_size_adjust := PlaynubSplines.NUM_NURBS_NON_UNIFORM_POINTS * int(nurbs)
 	var segment_size := maxi(1, PlaynubSplines.CUBIC_BEZIÉR_SEGMENT_SIZE * int(is_cubic_bezier) + PlaynubSplines.TANGENTIAL_SEGMENT_SIZE * int(is_tangential))
+	var num_segments := float(get_control_point_count() + int(closed) + nurbs_size_adjust) / float(segment_size)
 	
-	_length_table.resize(int(float(get_control_point_count()) / float(segment_size)))
+	_length_table.resize(roundi(num_segments))
 	
 	var i := 0
 	var size := float(_length_table.size())

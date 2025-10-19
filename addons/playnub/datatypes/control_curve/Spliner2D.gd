@@ -56,7 +56,15 @@ func _set_control_point_direct(index: int, pos: Vector2) -> void:
 func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
 	var params := get_evaluation_parameters(index_t)
 	
-	return PlaynubSplines.length_2D(spline_type
+	return PlaynubSplines.length_rational_2D(spline_type
+			, params.t if use_params_t else 1.0
+			, points[params.x0]
+			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
+			, points[params.x2]
+			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
+			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
+			, params.e1, params.e2, params.e3
+		) if rationalization_enabled else PlaynubSplines.length_2D(spline_type
 			, params.t if use_params_t else 1.0
 			, points[params.x0]
 			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
