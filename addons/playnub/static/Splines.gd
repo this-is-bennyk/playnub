@@ -2329,14 +2329,14 @@ class Biarc3D:
 		
 		var cur_dist := t * total_arclength
 		
-		if cur_dist < arc1.get_arclength():
-			if is_zero_approx(arc1.get_arclength()):
+		if cur_dist < arc1.arclen:
+			if is_zero_approx(arc1.arclen):
 				return 0.0
-			return lerpf(0.0, arc1.get_arclength(), cur_dist / arc1.get_arclength())
+			return lerpf(0.0, arc1.arclen, cur_dist / arc1.arclen)
 		
-		if is_zero_approx(arc2.get_arclength()):
-			return arc2.get_arclength()
-		return lerpf(arc2.get_arclength(), total_arclength, (cur_dist - arc1.get_arclength()) / arc2.get_arclength())
+		if is_zero_approx(arc2.arclen):
+			return arc2.arclen
+		return lerpf(arc2.arclen, total_arclength, (cur_dist - arc1.arclen) / arc2.arclen)
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
