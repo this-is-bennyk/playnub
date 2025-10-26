@@ -2147,182 +2147,170 @@ static func biarc_2D_length_cached(t: float, biarc: Biarc2D) -> float:
 	return biarc.evaluate_length(t)
 
 class Arc3D:
-	var _point := Vector3()
-	var _tangent := Vector3()
-	var _normal := Vector3()
-	var _center := Vector3()
-	var _axis1 := Vector3()
-	var _axis2 := Vector3()
-	var _radius := 0.0
-	var _angle := 0.0
-	var _arclen := 0.0
-	var _flipped := false
+	var center := Vector3()
+	var axis1 := Vector3()
+	var axis2 := Vector3()
+	var radius := 0.0
+	var angle := 0.0
+	var arclen := 0.0
 	
-	func get_point() -> Vector3:
-		return _point
-	
-	func get_tangent() -> Vector3:
-		return _tangent
-	
-	func get_normal() -> Vector3:
-		return _normal
-	
-	func get_center() -> Vector3:
-		return _center
-	
-	func get_axis1() -> Vector3:
-		return _axis1
-	
-	func get_axis2() -> Vector3:
-		return _axis2
-	
-	func get_radius() -> float:
-		return _radius
-	
-	func get_angle() -> float:
-		return _angle
-	
-	func get_arclength() -> float:
-		return _arclen
-	
-	func get_flipped() -> bool:
-		return _flipped
-	
-	func create_arc(start_point: Vector3, tangent: Vector3, endpoint: Vector3, flipped: bool, second_arc: bool) -> void:
-		_point = start_point
-		_tangent = tangent.normalized()
-		_flipped = flipped
+	func compute(start_point: Vector3, tangent: Vector3, endpoint: Vector3) -> void:
+		center = Vector3()
+		axis1 = Vector3()
+		axis2 = Vector3()
+		radius = 0.0
+		angle = 0.0
+		arclen = 0.0
 		
-		var pt_to_mid := endpoint - _point
+		tangent = tangent.normalized()
 		
-		_normal = pt_to_mid.cross(_tangent)
-		var perpendicular_axis := _tangent.cross(_normal)
-		
-		var denominator := 2.0 * perpendicular_axis.dot(pt_to_mid)
+		var pt_to_mid := endpoint - start_point
+		var normal := pt_to_mid.cross(tangent)
+		var perpendicular := tangent.cross(normal)
+		var denominator := 2.0 * perpendicular.dot(pt_to_mid)
 		
 		if is_zero_approx(denominator):
-			_center = _point.lerp(endpoint, 0.5)
-			_axis1 = _point - _center
-			_axis2 = Vector3()
-			_radius = 0.0
-			_angle = 0.0
-			_arclen = 0.0
-			return
-		
-		var scalar := pt_to_mid.dot(pt_to_mid) / denominator
-		
-		_center = _point + scalar * perpendicular_axis
-		_radius = _center.distance_to(_point)
-		
-		_axis1 = _point - _center
-		_axis2 = _tangent * _radius * (-1.0 * float(second_arc) + 1.0 * float(not second_arc))
-		
-		if is_zero_approx(_radius):
-			_angle = 0.0
-			_arclen = _point.distance_to(endpoint)
+			center = start_point.lerp(endpoint, 0.5)
+			radius = 0.0
+			angle = 0.0
 		else:
-			var pt_rel_to_center := (_point   - _center) / _radius
-			var md_rel_to_center := (endpoint - _center) / _radius
+			var center_dist := pt_to_mid.dot(pt_to_mid) / denominator
+			center = start_point + perpendicular * center_dist
 			
-			var twist := perpendicular_axis.dot(pt_to_mid)
-			var twist_dir := signf(twist)
+			var perp_len := perpendicular.length()
+			radius = absf(center_dist * perp_len)
 			
-			_angle = acos(pt_rel_to_center.dot(md_rel_to_center)) * twist_dir
-			
-			if _flipped:
-				_angle = TAU * -twist_dir + _angle
-			
-			_arclen = absf(_angle * _radius)
-	
-	func prepare_for_semicircles(point: Vector3, tangent: Vector3, radius: float) -> void:
-		_point = point
-		_tangent = tangent
-		_radius = radius
-		_arclen = PI * _radius
-	
-	func create_semicircles_with(other_arc: Arc3D, perpendicular_axis: Vector3) -> void:
-		_center				= _point.lerp(other_arc._point, 0.25)
-		other_arc._center 	= _point.lerp(other_arc._point, 0.75)
-		
-		_angle = PI
-		other_arc._angle = PI
-		
-		_axis1 = _point - _center
-		_axis2 = perpendicular_axis * _radius
-		
-		other_arc._axis1 = -_axis1
-		other_arc._axis2 = -_axis2
+			if is_zero_approx(radius):
+				angle = 0.0
+			else:
+				var inv_radius := 1.0 / radius
+				
+				var center_to_mid_dir := start_point - center
+				var center_to_end_dir := center_to_mid_dir * inv_radius
+				
+				center_to_mid_dir = (center_to_mid_dir + pt_to_mid) * inv_radius
+				
+				var twist := perpendicular.dot(pt_to_mid)
+				
+				angle = acos(center_to_end_dir.dot(center_to_mid_dir)) * signf(twist)
 
 class Biarc3D:
-	var arc0 := Arc3D.new()
 	var arc1 := Arc3D.new()
-	var midpoint := Vector3()
+	var arc2 := Arc3D.new()
 	var total_arclength: float:
 		get:
-			return arc0.get_arclength() + arc1.get_arclength()
+			return arc1.arclen + arc2.arclen
 	
 	func _init(p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> void:
 		calculate(p0, tan0, p1, tan1)
 	
-	func calculate(p0: Vector3, tan0: Vector3, p1: Vector3, tan1: Vector3) -> void:
-		tan0 = tan0.normalized()
-		tan1 = tan1.normalized()
+	func calculate(pt0: Vector3, tan0: Vector3, pt1: Vector3, tan1: Vector3) -> void:
+		var p1 := pt0
+		var p2 := pt1
 		
-		var vel := p1 - p0
+		var t1 := tan0.normalized()
+		var t2 := tan1.normalized()
 		
-		if tan0.is_equal_approx(tan1) and is_zero_approx(vel.dot(tan1)):
-			midpoint = p0.lerp(p1, 0.5)
+		t1 = t1.normalized()
+		t2 = t2.normalized()
+		
+		var vel := p2 - p1
+		var vel_dot_vel := vel.dot(vel)
+		
+		if is_zero_approx(vel_dot_vel):
+			arc1.center = p1
+			arc1.radius = 0.0
+			arc1.axis1 = vel
+			arc1.angle = 0.0
+			arc1.arclen = 0.0
 			
-			var radius := vel.length() * 0.25
+			arc2 = arc1
 			
-			arc0.prepare_for_semicircles(p0, tan1, radius)
-			arc1.prepare_for_semicircles(p1, tan1, radius)
-			arc0.create_semicircles_with(arc1, vel.cross(tan1).cross(vel).normalized())
 			return
 		
+		var tan_sum := t1 + t2
+		var vel_dot_tan_sum := vel.dot(tan_sum)
+		var t1_dot_t2 := t1.dot(t2)
+		var denominator := 2.0 * (1.0 - t1_dot_t2)
 		var dist := 0.0
 		
-		if tan0.is_equal_approx(tan1):
-			dist = vel.dot(vel) / (4.0 * vel.dot(tan1))
+		if is_zero_approx(denominator):
+			var vel_dot_t2 := vel.dot(t2)
+			
+			if is_zero_approx(vel_dot_t2):
+				var vel_len := sqrt(vel_dot_vel)
+				var inv_vel_len_sq := 1.0 / vel_dot_vel
+				var plane_normal := vel.cross(t2)
+				var perpendicular := plane_normal.cross(vel)
+				var radius := vel_len * 0.25
+				var center_to_p1 := vel * -0.25
+				
+				arc1.center = p1 - center_to_p1
+				arc2.radius = radius
+				arc1.axis1 = center_to_p1
+				arc1.axis2 = perpendicular * radius * inv_vel_len_sq
+				arc1.angle = PI
+				arc1.arclen = PI * radius
+				
+				arc2 = arc1
+				arc2.center = p2 - center_to_p1
+				arc2.axis1 = -arc2.axis1
+				arc2.axis2 = -arc2.axis2
+				
+				return
+			else:
+				dist = vel_dot_vel / (4.0 * vel_dot_t2)
 		else:
-			var tan_sum := tan0 + tan1
-			var vel_dot_tan_sum := vel.dot(tan_sum)
-			var denominator := 2.0 * (1.0 - tan0.dot(tan1))
-			dist = (-vel_dot_tan_sum + sqrt(vel_dot_tan_sum * vel_dot_tan_sum + denominator * vel.dot(vel))) / denominator
+			dist = (-vel_dot_tan_sum + sqrt(vel_dot_tan_sum * vel_dot_tan_sum + denominator * vel_dot_vel)) / denominator
 		
-		var negative_dist := not (dist > 0.0)
+		var midpoint := t1 - t2
+		midpoint = p2 + midpoint * dist
+		midpoint += p1
+		midpoint *= 0.5
 		
-		midpoint = 0.5 * (p0 + p1 + dist * (tan0 - tan1))
+		arc1.compute(p1, t1, midpoint)
+		arc2.compute(p2, t2, midpoint)
 		
-		arc0.create_arc(p0, tan0, midpoint, negative_dist, false)
-		arc1.create_arc(p1, tan1, midpoint, negative_dist, true)
+		if dist < 0.0:
+			arc1.angle = signf(arc1.angle) * TAU - arc1.angle
+			arc2.angle = signf(arc2.angle) * TAU - arc2.angle
+		
+		arc1.axis1 = p1 - arc1.center
+		arc1.axis2 = t1 * arc1.radius
+		arc1.arclen = (midpoint - p1).length() if arc1.radius == 0.0 else absf(arc1.radius * arc1.angle)
+		
+		arc2.axis1 = p2 - arc2.center
+		arc2.axis2 = t2 * -arc2.radius
+		arc2.arclen = (midpoint - p2).length() if arc2.radius == 0.0 else absf(arc2.radius * arc2.angle)
 	
 	func evaluate_position(t: float) -> Vector3:
 		var result := Vector3()
-		var cur_arclen := total_arclength * t
 		
-		if cur_arclen < arc0.get_arclength():
-			if is_zero_approx(arc0.get_arclength()):
-				result = midpoint
+		var total_dist := total_arclength
+		var cur_dist := t * total_dist
+		
+		if cur_dist < arc1.arclen:
+			if is_zero_approx(arc1.arclen):
+				result = arc1.center + arc1.axis1
 			else:
-				var arc0_percent := cur_arclen / arc0.get_arclength()
+				var arc_dist := cur_dist / arc1.arclen
 				
-				if is_zero_approx(arc0.get_radius()):
-					result = (arc0.get_center() + arc0.get_axis1()).lerp(arc0.get_center() - arc0.get_axis1(), t)
+				if arc1.radius == 0.0:
+					result = arc1.center + arc1.axis1 * (-arc_dist * 2.0 + 1.0)
 				else:
-					var cur_angle := arc0.get_angle() * arc0_percent + arc0.get_point().angle_to(arc0.get_center())
-					result = arc0.get_center() + cos(cur_angle) * arc0.get_axis1() + sin(cur_angle) * arc0.get_axis2()
+					var angle := arc1.angle * arc_dist
+					result = arc1.center + arc1.axis1 * cos(angle) + arc1.axis2 * sin(angle)
 		else:
-			if is_zero_approx(arc1.get_arclength()):
-				result = midpoint
+			if is_zero_approx(arc2.arclen):
+				result = arc2.center + arc2.axis1
 			else:
-				var arc1_percent := (cur_arclen - arc0.get_arclength()) / arc1.get_arclength()
+				var arc_dist := (cur_dist - arc1.arclen) / arc2.arclen
 				
-				if is_zero_approx(arc1.get_radius()):
-					result = (arc1.get_center() - arc1.get_axis1()).lerp(arc1.get_center() + arc1.get_axis1(), t)
+				if arc2.radius == 0.0:
+					result = arc2.center + arc2.axis1 * (arc_dist * 2.0 - 1.0)
 				else:
-					var cur_angle := arc1.get_angle() * (1.0 - arc1_percent) + arc1.get_point().angle_to(arc1.get_center())
-					result = arc1.get_center() + cos(cur_angle) * arc1.get_axis1() + sin(cur_angle) * arc1.get_axis2()
+					var angle := arc2.angle * (1.0 - arc_dist)
+					result = arc2.center + arc2.axis1 * cos(angle) + arc2.axis2 * sin(angle)
 		
 		return result
 	
@@ -2341,14 +2329,14 @@ class Biarc3D:
 		
 		var cur_dist := t * total_arclength
 		
-		if cur_dist < arc0.get_arclength():
-			if is_zero_approx(arc0.get_arclength()):
+		if cur_dist < arc1.get_arclength():
+			if is_zero_approx(arc1.get_arclength()):
 				return 0.0
-			return lerpf(0.0, arc0.get_arclength(), cur_dist / arc0.get_arclength())
+			return lerpf(0.0, arc1.get_arclength(), cur_dist / arc1.get_arclength())
 		
-		if is_zero_approx(arc1.get_arclength()):
-			return arc0.get_arclength()
-		return lerpf(arc0.get_arclength(), total_arclength, (cur_dist - arc0.get_arclength()) / arc1.get_arclength())
+		if is_zero_approx(arc2.get_arclength()):
+			return arc2.get_arclength()
+		return lerpf(arc2.get_arclength(), total_arclength, (cur_dist - arc1.get_arclength()) / arc2.get_arclength())
 
 ## Returns the position at [param t]% (usually in the range [code][0, 1][/code]) of a 3-dimensional biarc spline defined by
 ## [param p0], [param tan0], [param p1], and [param tan1].
