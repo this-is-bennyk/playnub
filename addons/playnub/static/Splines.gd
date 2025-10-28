@@ -114,14 +114,14 @@ enum SplineType
 	, KOCHANEK_BARTELS
 	
 	## A spline created by two arcs / semi-circles as determined by two points and their tangents.
-	## This version trades speed for memory efficiency.[br][br]
-	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br]
-	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.
+	## This version trades speed for memory efficiency. Use if the control points move around a lot.[br]
+	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.[br][br]
+	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.
 	, BIARC_UNCACHED
 	## A spline created by two arcs / semi-circles as determined by two points and their tangents.
-	## This version trades memory efficiency for speed.[br][br]
-	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.[br]
-	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.
+	## This version trades memory efficiency for speed. Use if the control points don't or hardly move.[br]
+	## [b]NOTE[/b]: Only works in 2D and 3D. Has no rational equivalent since a 1D version doesn't exist.[br][br]
+	## [i]Examples[/i]: slashing motions; spiraling motions; winding motions.
 	, BIARC_CACHED
 }
 
