@@ -142,6 +142,13 @@ var tangential_splines_relative_tangents := true:
 		tangential_splines_relative_tangents = value
 		_dirty = true
 
+# TODO: Generalized Closest T and Point calculations
+
+#@export_group("Advanced", "advanced_")
+#
+#@export_range(1, 2, 1, "or_greater")
+#var advanced_closest_point_sampling_rate := 1
+
 var _length_table := PackedFloat64Array()
 var _dirty := false
 
@@ -168,6 +175,9 @@ func _set_control_point_direct(index: int, pos) -> void
 
 @abstract
 func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float
+
+func _perform_additional_recache() -> void:
+	pass
 
 func set_control_point(index: int, pos, ignore_kink_resolution := false) -> void:
 	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
@@ -288,7 +298,7 @@ func evaluate_length(t: float) -> float:
 	if get_control_point_count() <= 0:
 		return 0.0
 	
-	_recache_length()
+	_recache()
 	
 	if _length_table.is_empty():
 		return _evaluate_segment_length(t, true)
@@ -307,7 +317,7 @@ func get_total_length() -> float:
 	if get_control_point_count() <= 0:
 		return 0.0
 	
-	_recache_length()
+	_recache()
 	
 	if _length_table.is_empty():
 		return _evaluate_segment_length(1.0, true)
@@ -424,7 +434,7 @@ func get_evaluation_parameters(t: float) -> EvaluationParameters:
 	
 	return result
 
-func _recache_length() -> void:
+func _recache() -> void:
 	if not _dirty:
 		return
 	
@@ -446,6 +456,8 @@ func _recache_length() -> void:
 		
 		_length_table[i] = prev_length + cur_length
 		i += 1
+	
+	_perform_additional_recache()
 	
 	_dirty = false
 
