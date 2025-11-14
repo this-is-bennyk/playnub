@@ -324,6 +324,11 @@ func get_total_length() -> float:
 	
 	return _length_table[_length_table.size() - 1]
 
+func is_ubs() -> bool:
+	return spline_type == PlaynubSplines.SplineType.B_SPLINE \
+		and (not (b_spline_non_uniform or closed)) \
+		and get_control_point_count() >= PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS
+
 func is_nubs() -> bool:
 	return spline_type == PlaynubSplines.SplineType.B_SPLINE and b_spline_non_uniform and not closed
 
@@ -424,9 +429,7 @@ func get_evaluation_parameters(t: float) -> EvaluationParameters:
 		
 		result.t = absolute_t - cur_as_float
 		
-		if spline_type == PlaynubSplines.SplineType.B_SPLINE \
-			and size >= PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS and (not (b_spline_non_uniform or closed)):
-			
+		if is_ubs():
 			absolute_t = clampf(absolute_t, 0.0, float(size - (PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS - 1)))
 			cur = clampi(cur, 0, size - PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS)
 			cur_as_float = float(cur)
