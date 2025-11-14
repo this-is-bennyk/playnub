@@ -49,6 +49,8 @@ const RATIO_MIN := 0.001
 ## The size of a Cubic Beziér spline segment.
 const CUBIC_BEZIÉR_SEGMENT_SIZE := 3
 
+## The minimum number of points for a uniform B-spline.
+const B_SPLINE_NUM_MIN_UNIFORM_POINTS := 4
 ## The number of points added to the start and end control points of a non-uniform B-Spline.
 const B_SPLINE_NON_UNIFORM_OFFSET_SIZE := 3
 ## The total number of points added to a non-uniform B-Spline.

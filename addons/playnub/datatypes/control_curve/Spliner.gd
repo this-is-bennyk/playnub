@@ -350,6 +350,8 @@ class EvaluationParameters:
 	var relative_tangents_mult := 0.0
 
 func get_evaluation_parameters(t: float) -> EvaluationParameters:
+	assert(get_control_point_count() > 0, "No points in this spline!")
+	
 	var result := EvaluationParameters.new()
 	
 	result.e1 = cardinal_tension * float(spline_type == PlaynubSplines.SplineType.CARDINAL) \
@@ -416,21 +418,38 @@ func get_evaluation_parameters(t: float) -> EvaluationParameters:
 			result.x3 = clampi(cur_segment * 2 + 3, 0, size - 1)
 		
 	else:
-		var cur := int(t * float(size))
-		var nubs_start_offset := PlaynubSplines.B_SPLINE_NON_UNIFORM_OFFSET_SIZE * int(nubs)
+		var absolute_t = t * float(size)
+		var cur := int(absolute_t)
+		var cur_as_float := float(cur)
 		
-		result.t = (t * float(size)) - float(cur)
+		result.t = absolute_t - cur_as_float
 		
-		result.x0 = clampi(cur - 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
-		result.x1 = clampi(cur     - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
-		result.x2 = clampi(cur + 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
-		result.x3 = clampi(cur + 2 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
-		
-		if closed:
-			result.x0 = wrapi(cur - 1, 0, size - int(closed))
-			result.x1 = wrapi(cur    , 0, size - int(closed))
-			result.x2 = wrapi(cur + 1, 0, size - int(closed))
-			result.x3 = wrapi(cur + 2, 0, size - int(closed))
+		if spline_type == PlaynubSplines.SplineType.B_SPLINE \
+			and size >= PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS and (not (b_spline_non_uniform or closed)):
+			
+			absolute_t = clampf(absolute_t, 0.0, float(size - (PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS - 1)))
+			cur = clampi(cur, 0, size - PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS)
+			cur_as_float = float(cur)
+			
+			result.t = absolute_t - cur_as_float
+			
+			result.x0 = clampi(cur    , 0, size - 1)
+			result.x1 = clampi(cur + 1, 0, size - 1)
+			result.x2 = clampi(cur + 2, 0, size - 1)
+			result.x3 = clampi(cur + 3, 0, size - 1)
+		else:
+			var nubs_start_offset := PlaynubSplines.B_SPLINE_NON_UNIFORM_OFFSET_SIZE * int(nubs)
+			
+			result.x0 = clampi(cur - 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+			result.x1 = clampi(cur     - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+			result.x2 = clampi(cur + 1 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+			result.x3 = clampi(cur + 2 - nubs_start_offset, 0, size - 1 - nubs_size_adjust)
+			
+			if closed:
+				result.x0 = wrapi(cur - 1, 0, size - int(closed))
+				result.x1 = wrapi(cur    , 0, size - int(closed))
+				result.x2 = wrapi(cur + 1, 0, size - int(closed))
+				result.x3 = wrapi(cur + 2, 0, size - int(closed))
 	
 	return result
 
