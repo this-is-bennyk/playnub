@@ -24,6 +24,9 @@
 class_name Spliner2D
 extends Spliner
 
+## Generates a 2-dimensional spline.
+
+## The list of points to create a spline out of.
 @export
 var points := PackedVector2Array():
 	set(value):
@@ -34,21 +37,27 @@ var points := PackedVector2Array():
 
 var _cached_biarcs: Array[PlaynubSplines.Biarc2D] = []
 
+## See [method Spliner.evaluate_position].
 func evaluate_position(t: float) -> Vector2:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.POSITION)
 
+## See [method Spliner.evaluate_velocity].
 func evaluate_velocity(t: float) -> Vector2:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.VELOCITY)
 
+## See [method Spliner.evaluate_acceleration].
 func evaluate_acceleration(t: float) -> Vector2:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.ACCELERATION)
 
+## See [method Spliner.evaluate_jerk].
 func evaluate_jerk(t: float) -> Vector2:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
+## See [Spliner.get_control_point_count].
 func get_control_point_count() -> int:
 	return points.size()
 
+## See [Spliner.get_control_point].
 func get_control_point(index: int) -> Vector2:
 	return points[index]
 

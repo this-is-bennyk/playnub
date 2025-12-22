@@ -24,6 +24,9 @@
 class_name Spliner3D
 extends Spliner
 
+## Generates a 3-dimensional spline.
+
+## The list of points to create a spline out of.
 @export
 var points := PackedVector3Array():
 	set(value):
@@ -34,21 +37,27 @@ var points := PackedVector3Array():
 
 var _cached_biarcs: Array[PlaynubSplines.Biarc3D] = []
 
+## See [method Spliner.evaluate_position].
 func evaluate_position(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.POSITION)
 
+## See [method Spliner.evaluate_velocity].
 func evaluate_velocity(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.VELOCITY)
 
+## See [method Spliner.evaluate_acceleration].
 func evaluate_acceleration(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.ACCELERATION)
 
+## See [method Spliner.evaluate_jerk].
 func evaluate_jerk(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
+## See [Spliner.get_control_point_count].
 func get_control_point_count() -> int:
 	return points.size()
 
+## See [Spliner.get_control_point].
 func get_control_point(index: int) -> Vector3:
 	return points[index]
 

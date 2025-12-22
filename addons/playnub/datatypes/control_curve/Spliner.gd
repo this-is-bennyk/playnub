@@ -25,15 +25,19 @@
 class_name Spliner
 extends Resource
 
-## The base class of all dimensions of splines.
+## The base class for creating n-dimensional spline generators.
 ## 
 ## This class abstracts out the common behaviors between splines of all dimensions.
 
+## How control points in a Cubic Beziér curve should behave when their position is changed.
 enum CubicBeziérKinkResolution
 {
+	## Doesn't change anything about neighboring control points.
 	NONE,
+	## Keeps the center and its neighboring handles on the same line, but doesn't force the handles to be the same distance from the center.
 	PARTIAL_MIRRORING,
-	FULL_MIRRORING,
+	## Keeps the center and its neighboring handles on the same line and forces the handles to be the same distance from the center.
+	FULL_MIRRORING
 }
 
 ## The kind of spline to evaluate.
@@ -80,6 +84,7 @@ var cardinal_tension := 0.5:
 
 @export_group("Cubic Beziér", "cubic_bezier_")
 
+## How each points behaves when it's a part of a kink in a Cubic Beziér curve.
 @export
 var cubic_bezier_kink_resolutions: Array[CubicBeziérKinkResolution] = []:
 	set(value):
@@ -95,8 +100,6 @@ var cubic_bezier_kink_resolutions: Array[CubicBeziérKinkResolution] = []:
 		while i < size:
 			set_control_point_kink_resolution(i, value[i])
 			i += 1
-
-# kink resolution: closest neighbor, farthest neighbor, equidistant (take avg dist and apply to both)
 
 @export_group("B-Spline", "b_spline_")
 
@@ -152,33 +155,49 @@ var tangential_splines_relative_tangents := true:
 var _length_table := PackedFloat64Array()
 var _dirty := false
 
+## Returns the position at [param index_t]% (usually in the range [code][0, 1][/code]) of the derived [Spliner] class.
 @abstract
 func evaluate_position(t: float) -> Variant
 
+## Returns the velocity at [param index_t]% (usually in the range [code][0, 1][/code]) of the derived [Spliner] class.
 @abstract
 func evaluate_velocity(t: float) -> Variant
 
+## Returns the acceleration at [param index_t]% (usually in the range [code][0, 1][/code]) of the derived [Spliner] class.
 @abstract
 func evaluate_acceleration(t: float) -> Variant
 
+## Returns the jerk at [param index_t]% (usually in the range [code][0, 1][/code]) of the derived [Spliner] class.
 @abstract
 func evaluate_jerk(t: float) -> Variant
 
+## Returns the number of control points in the derived [Spliner] class.
 @abstract
 func get_control_point_count() -> int
 
+## Returns the position of a control point in the dimension of the derived [Spliner] class.
 @abstract
 func get_control_point(index: int) -> Variant
 
+## Sets the position of a control point in the dimension of the derived [Spliner] class.
 @abstract
 func _set_control_point_direct(index: int, pos) -> void
 
+## Returns the length of a segment of the derived [Spliner] class at [param index_t]% (usually in the range [code][0, 1][/code]),
+## or with the calculated t-value from the segment's evaluation parameters if [param use_params_t] is [code]true[/code].
 @abstract
 func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float
 
+# Optional overrideable function which allows for caching additional data related to the derived [Spliner] class.
 func _perform_additional_recache() -> void:
 	pass
 
+## Sets the position of the control point at index [param index] to [param pos].[br][br]
+## For splines with a [member spline_type] of [code]PlaynubSplines.SplineTypes.CUBIC_BEZIÉR[/code],
+## if [param ignore_kink_resolution] is [code]true[/code], the control points will not automatically adjust to make the curve continuous.
+## Otherwise, moving a center control point moves its neighboring handle control points with it, and moving a handle control point also adjusts
+## its opposite neighbor to be on the line formed by the center and the given handle based on its [enum CubicBeziérKinkResolution] behavior.
+## (This is the behavior of Cubic Beziér curves in vector graphics applications.)
 func set_control_point(index: int, pos, ignore_kink_resolution := false) -> void:
 	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
 	
@@ -275,6 +294,7 @@ func set_control_point(index: int, pos, ignore_kink_resolution := false) -> void
 		
 		_set_control_point_direct(opposite, center_pos - dir_cur_to_center * dist_center_to_neighbor)
 
+## Sets the [enum CubicBeziérKinkResolution] behavior of the control point at the given [param index] to [param kink_resolution].
 func set_control_point_kink_resolution(index: int, kink_resolution: CubicBeziérKinkResolution) -> void:
 	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
 	
@@ -290,10 +310,12 @@ func set_control_point_kink_resolution(index: int, kink_resolution: CubicBeziér
 	
 	cubic_bezier_kink_resolutions[index] = kink_resolution
 
+## Returns the [enum CubicBeziérKinkResolution] behavior of the control point at the given [param index].
 func get_control_point_kink_resolution(index: int) -> CubicBeziérKinkResolution:
 	assert(index >= 0 and index < get_control_point_count(), "Out-of-bounds spline control point access!")
 	return cubic_bezier_kink_resolutions[index]
 
+## Returns the length at [param t]% (usually in the range [code][0, 1][/code]) of the spline.
 func evaluate_length(t: float) -> float:
 	if get_control_point_count() <= 0:
 		return 0.0
@@ -313,6 +335,7 @@ func evaluate_length(t: float) -> float:
 	
 	return length_of_prev_segment + _evaluate_segment_length(t, true)
 
+## Returns the total length of the spline.
 func get_total_length() -> float:
 	if get_control_point_count() <= 0:
 		return 0.0
@@ -324,17 +347,21 @@ func get_total_length() -> float:
 	
 	return _length_table[_length_table.size() - 1]
 
+## Returns whether the spline is a [u]U[/u]niform [u]B[/u]-[u]S[/u]pline.
 func is_ubs() -> bool:
 	return spline_type == PlaynubSplines.SplineType.B_SPLINE \
 		and (not (b_spline_non_uniform or closed)) \
 		and get_control_point_count() >= PlaynubSplines.B_SPLINE_NUM_MIN_UNIFORM_POINTS
 
+## Returns whether the spline is a [u]N[/u]on-[u]U[/u]niform [u]B[/u]-[u]S[/u]pline.
 func is_nubs() -> bool:
 	return spline_type == PlaynubSplines.SplineType.B_SPLINE and b_spline_non_uniform and not closed
 
+## Returns whether the spline is a [u]N[/u]on-[u]U[/u]niform [u]R[/u]ational [u]B[/u]-[u]S[/u]pline.
 func is_nurbs() -> bool:
 	return is_nubs() and rationalization_enabled
 
+## Returns whether the spline uses tangent vectors to affect its behavior as opposed to points only.
 func is_tangential_spline() -> bool:
 	return spline_type == PlaynubSplines.SplineType.HERMITE \
 		or spline_type == PlaynubSplines.SplineType.BIARC_UNCACHED \
@@ -354,6 +381,8 @@ class EvaluationParameters:
 	
 	var relative_tangents_mult := 0.0
 
+## Returns the evaluation parameters of the spline at [param t]% (usually in the range [code][0, 1][/code]) of the spline.
+## Used by derived classes to implement the abstract functions.
 func get_evaluation_parameters(t: float) -> EvaluationParameters:
 	assert(get_control_point_count() > 0, "No points in this spline!")
 	
