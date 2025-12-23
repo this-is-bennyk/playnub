@@ -45,6 +45,8 @@ enum InterpolationType
 	, CUBIC_IN_TIME
 	## Interpolates between a curve defined by the start, the end, and two control points.
 	, BEZIER
+	## Interpolates between a spline defined by a [Spliner].
+	, SPLINE
 }
 
 ## The behaviors of interpolation between any two values.
@@ -58,6 +60,8 @@ enum EasingType
 	, EQUATION
 	## Uses the [method @GlobalScope.ease] function.
 	, EASE_FUNC
+	## Uses a [Spliner1D] created by the designer.
+	, SPLINE_1D
 }
 
 @export_group("Interpolation")
@@ -123,28 +127,33 @@ var spherical := false
 @export
 var use_slerpni_for_quats := false
 
+@export_subgroup("Spline Interpolation")
+
+## The spline to evaluate for the interpolation.
+@export
+var spliner: Spliner = null
+
 @export_group("Easing")
 
-## Defines what behavior the interpolation to use.
-## The weight returned by the easing type will be relative to the range
-## [code][0, 1][/code] unless the designer specifies something custom using
-## [enum EasingType.CURVE] or [enum EasingType.EQUATION].
+## Defines the behavior of the weight value when interpolating the curve.
+## The weight returned by the easing type will typically be relative to the range
+## [code][0, 1][/code] (but it doesn't have to be; see [method at] for more info).
 @export
 var easing_type: EasingType = EasingType.BUILT_IN
 
 @export_subgroup("Built-in", "built_in_")
 
-## The native Godot transition type to use. See [Tween] for more information.
+## The native Godot transition type to use to ease the interpolation. See [Tween] for more information.
 @export
 var built_in_transition: Tween.TransitionType = Tween.TRANS_LINEAR
 
-## The native Godot easing type to use. See [Tween] for more information.
+## The native Godot easing type to use to ease the interpolation. See [Tween] for more information.
 @export
 var built_in_easing: Tween.EaseType = Tween.EASE_IN
 
 @export_subgroup("Arbitrary Curve")
 
-## The curve to use, drawable in-editor by a designer. As of Godot 4.4, the [Curve]'s
+## The curve to use to ease the interpolation, drawable in-editor by a designer. As of Godot 4.4, the [Curve]'s
 ## domain (x-axis) can be extended beyond [code][0, 1][/code]. You may change the domain
 ## for your curve, but it is recommended for simplicity's sake to stick with a [code][0, 1][/code] range.
 @export
@@ -158,19 +167,25 @@ var dynamically_sample_curve := false
 
 @export_subgroup("Arbitrary Equation")
 
-## The equation to evaluate for the interpolation.
+## The equation to evaluate to ease the interpolation.
 @export
 var equation: InterpolationEquation = null
 
 @export_subgroup("ease()")
 
-## The curve that [method @GlobalScope.ease] should use for the interpolation.
+## The curve that [method @GlobalScope.ease] should use to ease the interpolation.
 @export_exp_easing
 var ease_function_curve := 0.0
 
+@export_subgroup("Spline")
+
+## The 1-dimensional spline to use to ease the interpolation.
+@export
+var easing_spliner: Spliner1D = null
+
 ## Returns the interpolated value at the given [param weight]. [param weight] should be in the range
-## [code][0, 1][/code], but you may design certain curves for a range beyond [code][0, 1][/code], particularly for
-## [constant EasingType.BUILT_IN], [constant EasingType.CURVE], and [constant EasingType.EQUATION].[br][br]
+## [code][0, 1][/code], but you may design curves for a range beyond [code][0, 1][/code], particularly for
+## [constant EasingType.BUILT_IN], [constant EasingType.CURVE], [constant EasingType.EQUATION], and [enum EasingType.SPLINE_1D].[br][br]
 ## [b]NOTE[/b]: [constant EasingType.BUILT_IN] does not allow for most negative bases, i.e. [param weight]s,
 ## with [constant Tween.TRANS_QUART], [constant Tween.TRANS_QUINT], [constant Tween.TRANS_EXPO],
 ## [constant Tween.TRANS_SPRING], and [constant Tween.TRANS_QUAD] (when using [constant Tween.EASE_OUT])
@@ -186,6 +201,8 @@ func at(weight: float) -> Variant:
 		return _cubic_lerp_in_time(start.data, end.data, xformed_weight)
 	elif interpolation_type == InterpolationType.BEZIER:
 		return _bezier_lerp(start.data, end.data, xformed_weight)
+	elif interpolation_type == InterpolationType.SPLINE:
+		return _spline_lerp(xformed_weight)
 	
 	return _lerp(start.data, end.data, xformed_weight)
 
@@ -298,6 +315,10 @@ func _bezier_lerp(a: Variant, b: Variant, weight: float) -> Variant:
 	
 	return a.bezier_interpolate(control_1.data, control_2.data, b, weight)
 
+func _spline_lerp(weight: float) -> Variant:
+	assert(spliner, "No spliner defined!")
+	return spliner.evaluate_position(weight)
+
 func _get_transformed_weight(weight: float) -> float:
 	match easing_type:
 		EasingType.CURVE:
@@ -310,6 +331,10 @@ func _get_transformed_weight(weight: float) -> float:
 		
 		EasingType.EASE_FUNC:
 			return ease(weight, ease_function_curve)
+		
+		EasingType.SPLINE_1D:
+			assert(easing_spliner, "No spliner defined!")
+			return easing_spliner.evaluate_position(weight)
 		
 		_:
 			assert(not

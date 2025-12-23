@@ -53,11 +53,11 @@ func evaluate_acceleration(t: float) -> Vector3:
 func evaluate_jerk(t: float) -> Vector3:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
-## See [Spliner.get_control_point_count].
+## See [method Spliner.get_control_point_count].
 func get_control_point_count() -> int:
 	return points.size()
 
-## See [Spliner.get_control_point].
+## See [method Spliner.get_control_point].
 func get_control_point(index: int) -> Vector3:
 	return points[index]
 
@@ -70,7 +70,8 @@ func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
 	if use_params_t and spline_type == PlaynubSplines.SplineType.BIARC_CACHED:
 		params.e1 = _cached_biarcs[params.x0]
 	
-	return PlaynubSplines.length_rational_3D(spline_type
+	return PlaynubSplines.length_rational_3D(
+			  spline_type
 			, params.t if use_params_t else 1.0
 			, points[params.x0]
 			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
@@ -125,7 +126,8 @@ func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector3:
 	if spline_type == PlaynubSplines.SplineType.BIARC_CACHED:
 		params.e1 = _cached_biarcs[params.x0]
 	
-	return PlaynubSplines.eval_rational_3D(spline_type
+	return PlaynubSplines.eval_rational_3D(
+			  spline_type
 			, eval
 			, params.t
 			, points[params.x0]
@@ -134,7 +136,8 @@ func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector3:
 			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
 			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
 			, params.e1, params.e2, params.e3
-		) if rationalization_enabled else PlaynubSplines.eval_3D(spline_type
+		) if rationalization_enabled else PlaynubSplines.eval_3D(
+			  spline_type
 			, eval
 			, params.t
 			, points[params.x0]

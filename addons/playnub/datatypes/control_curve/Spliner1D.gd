@@ -21,36 +21,34 @@
 # SOFTWARE.
 
 @tool
-class_name Spliner2D
+class_name Spliner1D
 extends Spliner
 
-## Generates a 2-dimensional spline.
+## Generates a 1-dimensional spline.
 
 ## The list of points to create a spline out of.
 @export
-var points := PackedVector2Array():
+var points := PackedFloat64Array():
 	set(value):
 		points = value
 		ratios = ratios
 		_dirty = true
 		emit_changed()
 
-var _cached_biarcs: Array[PlaynubSplines.Biarc2D] = []
-
 ## See [method Spliner.evaluate_position].
-func evaluate_position(t: float) -> Vector2:
+func evaluate_position(t: float) -> float:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.POSITION)
 
 ## See [method Spliner.evaluate_velocity].
-func evaluate_velocity(t: float) -> Vector2:
+func evaluate_velocity(t: float) -> float:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.VELOCITY)
 
 ## See [method Spliner.evaluate_acceleration].
-func evaluate_acceleration(t: float) -> Vector2:
+func evaluate_acceleration(t: float) -> float:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.ACCELERATION)
 
 ## See [method Spliner.evaluate_jerk].
-func evaluate_jerk(t: float) -> Vector2:
+func evaluate_jerk(t: float) -> float:
 	return _eval_spline(t, PlaynubSplines.SplineEvaluation.JERK)
 
 ## See [method Spliner.get_control_point_count].
@@ -58,19 +56,21 @@ func get_control_point_count() -> int:
 	return points.size()
 
 ## See [method Spliner.get_control_point].
-func get_control_point(index: int) -> Vector2:
+func get_control_point(index: int) -> float:
 	return points[index]
 
-func _set_control_point_direct(index: int, pos: Vector2) -> void:
+func _set_control_point_direct(index: int, pos: float) -> void:
 	points[index] = pos
 
 func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
+	assert(
+		not (spline_type == PlaynubSplines.SplineType.BIARC_UNCACHED or spline_type == PlaynubSplines.SplineType.BIARC_CACHED),
+		"Incompatible spline type!"
+	)
+	
 	var params := get_evaluation_parameters(index_t)
 	
-	if use_params_t and spline_type == PlaynubSplines.SplineType.BIARC_CACHED:
-		params.e1 = _cached_biarcs[params.x0]
-	
-	return PlaynubSplines.length_rational_2D(
+	return PlaynubSplines.length_rational_1D(
 			  spline_type
 			, params.t if use_params_t else 1.0
 			, points[params.x0]
@@ -79,8 +79,8 @@ func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
 			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
 			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
 			, params.e1, params.e2, params.e3
-		) if rationalization_enabled else PlaynubSplines.length_2D(
-			  spline_type if use_params_t or spline_type != PlaynubSplines.SplineType.BIARC_CACHED else PlaynubSplines.SplineType.BIARC_UNCACHED
+		) if rationalization_enabled else PlaynubSplines.length_1D(
+			  spline_type
 			, params.t if use_params_t else 1.0
 			, points[params.x0]
 			, points[params.x1] - points[params.x0] * params.relative_tangents_mult
@@ -89,44 +89,17 @@ func _evaluate_segment_length(index_t: float, use_params_t: bool) -> float:
 			, params.e1, params.e2, params.e3
 		)
 
-func _perform_additional_recache() -> void:
-	if spline_type != PlaynubSplines.SplineType.BIARC_CACHED:
-		return
+func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> float:
+	assert(
+		not (spline_type == PlaynubSplines.SplineType.BIARC_UNCACHED or spline_type == PlaynubSplines.SplineType.BIARC_CACHED),
+		"Incompatible spline type!"
+	)
 	
-	_cached_biarcs.resize(get_control_point_count())
-	
-	var i := 0
-	var size := float(get_control_point_count())
-	
-	while i < get_control_point_count():
-		var params := get_evaluation_parameters(float(i) / size)
-		
-		if _cached_biarcs[i]:
-			_cached_biarcs[i].calculate(
-				  points[params.x0]
-				, points[params.x1] - points[params.x0] * params.relative_tangents_mult
-				, points[params.x2]
-				, points[params.x3] - points[params.x2] * params.relative_tangents_mult
-			)
-		else:
-			_cached_biarcs[i] = PlaynubSplines.Biarc2D.new(
-				  points[params.x0]
-				, points[params.x1] - points[params.x0] * params.relative_tangents_mult
-				, points[params.x2]
-				, points[params.x3] - points[params.x2] * params.relative_tangents_mult
-			)
-		
-		i += 1
-
-func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector2:
 	_recache()
 	
 	var params := get_evaluation_parameters(t)
 	
-	if spline_type == PlaynubSplines.SplineType.BIARC_CACHED:
-		params.e1 = _cached_biarcs[params.x0]
-	
-	return PlaynubSplines.eval_rational_2D(
+	return PlaynubSplines.eval_rational_1D(
 			  spline_type
 			, eval
 			, params.t
@@ -136,7 +109,7 @@ func _eval_spline(t: float, eval: PlaynubSplines.SplineEvaluation) -> Vector2:
 			, points[params.x3] - points[params.x2] * params.relative_tangents_mult
 			, ratios[params.x0], ratios[params.x1], ratios[params.x2], ratios[params.x3]
 			, params.e1, params.e2, params.e3
-		) if rationalization_enabled else PlaynubSplines.eval_2D(spline_type
+		) if rationalization_enabled else PlaynubSplines.eval_1D(spline_type
 			, eval
 			, params.t
 			, points[params.x0]
