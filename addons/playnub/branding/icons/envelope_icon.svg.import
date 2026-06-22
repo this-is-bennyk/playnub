@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/envelope_icon.svg-60a77b75f5d25c7a466b71ade62
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

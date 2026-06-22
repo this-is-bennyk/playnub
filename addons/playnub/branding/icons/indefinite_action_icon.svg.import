@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/indefinite_action_icon.svg-08d10be4cb3a4ecd33
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

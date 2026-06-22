@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/playhead_icon.svg-a86143a2103f5f6f36a2aba8668
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/interpolator_icon.svg-9ef7e57d2c6b3995cfd6c88
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

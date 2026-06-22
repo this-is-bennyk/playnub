@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/instant_action_icon.svg-3dd54729a1961e4eefef7
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

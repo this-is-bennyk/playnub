@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/action_list_icon.svg-9ca73da437f7205393d304ee
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

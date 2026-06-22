@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/pid_controller_icon.svg-7bedfddf2437abc96f1b5
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

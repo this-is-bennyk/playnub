@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/signal_emitter_icon.svg-25c704ace7d7654aaaf9f
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true

@@ -15,4 +15,6 @@ dest_files=["res://.godot/imported/color_box_filler_icon.svg-b1bb12b0973cb46a644
 base_scale=4.0
 saturation=1.0
 color_map={}
+fix_alpha_border=false
+premult_alpha=false
 compress=true
