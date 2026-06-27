@@ -3,11 +3,11 @@
 <h1 align="center">Playnub</h1>
 
 <p align="center">
-  A kit of game development tools for Godot 4.5+!
+  A kit of game development tools for Godot 4.x!
 </p>
 
 <p align="center">
-  <a href="https://godotengine.org/download/" target="_blank" style="text-decoration:none"><img alt="Godot 4.5+" src="https://img.shields.io/badge/Godot-4.5+-%23478cbf?labelColor=CFC9C8&color=49A9B4" /></a>
+  <a href="https://godotengine.org/download/" target="_blank" style="text-decoration:none"><img alt="Godot 4.x" src="https://img.shields.io/badge/Godot-4.5+-%23478cbf?labelColor=CFC9C8&color=49A9B4" /></a>
 </p>
 
 ## Table of Contents
@@ -31,7 +31,7 @@ The Playnub plugin is a collection of many general-purpose game development patt
 - Telemetry
   - Record continuous variables with just a few function calls
   - Create multiple tables of data
-  - CSV, SQL file, and SQLite database support
+  - CSV and SQLite database support
 - Behaviors
   - Action Lists: for creating discrete sequences of events in code
 - Interpolation and Motion
