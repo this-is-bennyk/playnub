@@ -18,6 +18,16 @@ config/name="Playnub Plugin"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+PlaynubTelemeter="*uid://cyl6pdux2c65d"
+PlaynubRandomizer="*uid://dqoir6uj4vxvq"
+PlaynubAutomator="*uid://ctco8vjiohs1w"
+
 [dotnet]
 
 project/assembly_name="Playnub Plugin"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/playnub/plugin.cfg")

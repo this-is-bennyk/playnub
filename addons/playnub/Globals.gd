@@ -74,8 +74,8 @@ const _SETTINGS_PROPERTY_DEFS := [
 	, [&"playnub/general/legal/copyright", _SETTINGS_DEFAULT_VALUES[&"playnub/general/legal/copyright"], _BASIC_SETTING]
 	
 	, [&"playnub/telemeter/enabled", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/enabled"], _BASIC_SETTING]
-	, [&"playnub/telemeter/file_type", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/file_type"], _BASIC_SETTING, PROPERTY_HINT_ENUM, "CSV,SQL,SQLite"]
-	# TODO: Commented out splitting properties, if there's a valid use case for them
+	, [&"playnub/telemeter/file_type", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/file_type"], _BASIC_SETTING, PROPERTY_HINT_ENUM, "CSV,SQLite"]
+	# TODO: Uncomment out noisy splitting properties, if there's a valid use case for them
 	, [&"playnub/telemeter/splitting/vector2", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/vector2"], _ADVANCED_SETTING]
 	, [&"playnub/telemeter/splitting/vector2i", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/vector2i"], _ADVANCED_SETTING]
 	, [&"playnub/telemeter/splitting/rect2", _SETTINGS_DEFAULT_VALUES[&"playnub/telemeter/splitting/rect2"], _ADVANCED_SETTING]

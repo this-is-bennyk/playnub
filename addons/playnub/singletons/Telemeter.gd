@@ -43,12 +43,6 @@ const _HOUR_STR := &"_H"
 const _MIN_STR := &"_M"
 const _SEC_STR := &"_S"
 
-const _DB_CREATOR_FILE := &"telemetry_db_creator.sql"
-const _DB_DROPPER_FILE := &"telemetry_db_dropper.sql"
-
-const _DB_HEADER_TITLE := &"-- Telemetry DB: "
-const _DB_HEADER_COMMENT := &"-- "
-
 const _NEWLINE := &"\n"
 const _TAB := &"\t"
 const _SQL_TERMINATOR := &";\n"
@@ -56,14 +50,17 @@ const _SQL_ID_QUOTE := &"`"
 
 const _SQL_VARCHAR_LIMIT := 65535
 
+## The type of logs to generate. Modify this option under [b]Project Settings > Playnub > Telemeter > File Type[/b].
 enum FileType
 {
+	## Writes telemetry to a CSV, allowing for easy usage in spreadsheet programs.
 	  CSV
+	## Writes telemetry to a local SQL database, allowing for advanced querying and manipulation.
 	, SQLITE
 }
 
 ## Whether the telemeter is active. Off by default in exported builds. Add the
-## custom feature "playnub_telemeter" to your export preset to enable it
+## custom feature [code]"playnub_telemeter"[/code] to your export preset to enable it
 ## (recommended only for debugging).
 var enabled: bool:
 	get:
@@ -108,7 +105,6 @@ func update(table: StringName) -> void:
 		return
 	
 	assert(_tables.has(table), "Table doesn't exist!")
-	
 	_tables[table].update()
 
 func _ready() -> void:
@@ -117,10 +113,10 @@ func _ready() -> void:
 	
 	var date_and_time := Time.get_datetime_string_from_system().split(_TIME_STR, false)
 	var time_split := date_and_time[1].split(_COLON_STR, false)
-	var time_str := date_and_time[0] + _HOUR_STR \
-		+ time_split[0] + _MIN_STR \
-		+ time_split[1] + _SEC_STR \
-		+ time_split[2]
+	var time_str := date_and_time[0] \
+		+ _HOUR_STR + time_split[0] \
+		+ _MIN_STR + time_split[1] \
+		+ _SEC_STR + time_split[2]
 	
 	var user_dir := DirAccess.open(_USR_DIR_STR)
 	user_dir.make_dir_recursive(str(_TELEMETRY_HIGH_LVL_DIR_STR, _SLASH_STR, time_str))
